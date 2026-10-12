@@ -1,8 +1,7 @@
 // src/api/auth.ts
 /**
- * 认证接口层。login/register 的形状严格对齐后端 RegisterRequest（两接口共用同一 DTO）。
- * fetchCaptcha / verifyCaptchaLocal 目前是前端 mock —— 后端尚无验证码端点，
- * 接入时只替换这两个函数的实现，签名与调用点不动。
+ * 认证接口层。图形验证码、登录、注册均为真实接口（经 /gw 代理到网关 8100）。
+ * 验证码答案只存在服务端 Redis，接口不返回明文，判错统一靠业务 code:0。
  */
 
 import { HttpError, request } from './request'
@@ -25,9 +24,9 @@ export interface LoginResult {
 
 export interface CaptchaChallenge {
   captchaKey: string
-  /** mock 阶段是明文数字串；真后端上线后改为 base64 图 */
+  /** base64 图片 data URI，直接绑到 <img :src> */
   challenge: string
-  kind: 'text' | 'image-base64'
+  kind: 'image-base64'
 }
 
 export const CAPTCHA_LENGTH = 6
@@ -65,30 +64,21 @@ export function logout(): Promise<unknown> {
   return request<unknown>('/auth/logout', { method: 'POST' })
 }
 
-// ===================== 验证码（mock） =====================
+// ===================== 验证码 =====================
 
-const CAPTCHA_TTL_MS = 5 * 60 * 1000
-
-let challenge: { key: string; expected: string; expiresAt: number } | null = null
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+interface CaptchaPayload {
+  captchaKey: string
+  imageBase64: string
 }
 
+/**
+ * 取一张图形验证码。challenge 复用为 base64 图，可直接绑到 <img :src>。
+ * 图形码是一次性的：服务端校验过一次就作废，所以提交失败后必须重新取图。
+ */
 export async function fetchCaptcha(): Promise<CaptchaChallenge> {
-  await delay(240)
-  const digits = String(Math.floor(100000 + Math.random() * 900000))
-  const key = `mock-${Date.now().toString(36)}`
-  challenge = { key, expected: digits, expiresAt: Date.now() + CAPTCHA_TTL_MS }
-  return { captchaKey: key, challenge: digits, kind: 'text' }
-}
-
-/** mock 专用的本地校验。真后端接管验证码后删除本函数，改由 login 的 code:0 判错。 */
-export function verifyCaptchaLocal(captchaKey: string, code: string): boolean {
-  if (!challenge || challenge.key !== captchaKey) return false
-  if (challenge.expiresAt < Date.now()) {
-    challenge = null
-    return false
+  const data = await request<Partial<CaptchaPayload> | null>('/auth/captcha')
+  if (!data || typeof data.captchaKey !== 'string' || typeof data.imageBase64 !== 'string') {
+    throw new HttpError('验证码响应格式异常', 0)
   }
-  return challenge.expected === code
+  return { captchaKey: data.captchaKey, challenge: data.imageBase64, kind: 'image-base64' }
 }

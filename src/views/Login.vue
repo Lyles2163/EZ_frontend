@@ -96,7 +96,6 @@ const passwordPlaceholder = computed(() => (isLogin.value ? '请输入密码' : 
             <div class="field">
               <div class="field-head">
                 <span class="field-label">验证码</span>
-                <span class="dev-tag" title="后端还没有验证码接口，这一步只在浏览器里校验">开发占位</span>
                 <button
                     class="link-btn"
                     :disabled="cooldown > 0"
@@ -107,8 +106,14 @@ const passwordPlaceholder = computed(() => (isLogin.value ? '请输入密码' : 
               </div>
 
               <div v-if="captcha" class="captcha-row">
-                <span class="captcha-hint">题面</span>
-                <output class="captcha-code">{{ captcha.challenge }}</output>
+                <img
+                    class="captcha-img"
+                    :src="captcha.challenge"
+                    :key="captcha.captchaKey"
+                    alt="图形验证码图片"
+                    title="看不清？点击刷新"
+                    @click="requestCode"
+                />
                 <CodeSlots
                     :length="6"
                     :value="form.captchaCode"
@@ -309,22 +314,14 @@ const passwordPlaceholder = computed(() => (isLogin.value ? '请输入密码' : 
   flex-wrap: wrap;
 }
 
-.captcha-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.captcha-code {
-  min-width: 66px;
-  padding: 4px 8px;
+.captcha-img {
+  width: 120px;
+  height: 44px;
+  border: 1px solid var(--glass-border-strong);
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  color: var(--text-primary);
-  background: var(--divider);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  object-fit: cover;
 }
 
 .remember {

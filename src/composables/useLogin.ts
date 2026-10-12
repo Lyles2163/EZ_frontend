@@ -5,7 +5,7 @@
  */
 import { computed, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CAPTCHA_LENGTH, fetchCaptcha, register, verifyCaptchaLocal, type CaptchaChallenge } from '../api/auth'
+import { CAPTCHA_LENGTH, fetchCaptcha, register, type CaptchaChallenge } from '../api/auth'
 import { BizError } from '../api/request'
 import { resolveRedirect, useAuthStore } from '../stores/auth'
 
@@ -124,14 +124,9 @@ export function useLogin() {
 
     try {
       if (isLogin.value) {
-        const challenge = captcha.value!
-        if (!verifyCaptchaLocal(challenge.captchaKey, form.captchaCode)) {
-          captchaStatus.value = 'error'
-          invalidateCaptcha()
-          throw new BizError('验证码错误或已失效，请重新获取')
-        }
-        captchaStatus.value = 'success'
+        // 图形码由服务端校验：前端不再自证，错了就靠 code:0 报错并作废这张图
         await auth.login({ ...form, remember: remember.value })
+        captchaStatus.value = 'success'
         router.replace(resolveRedirect(route.query.redirect))
         return
       }
@@ -143,6 +138,11 @@ export function useLogin() {
       notice.value = '注册成功，请登录'
     } catch (err) {
       error.value = err instanceof Error ? err.message : isLogin.value ? '登录失败，请稍后重试' : '注册失败，请稍后重试'
+      // 服务端说验证码有问题 → 这张图已被消费，必须让用户重新取一张
+      if (err instanceof BizError && err.message.includes('验证码')) {
+        captchaStatus.value = 'error'
+        invalidateCaptcha()
+      }
       throw err
     } finally {
       submitting.value = false
