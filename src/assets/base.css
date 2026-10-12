@@ -1,0 +1,65 @@
+/* 纯 reset，不再自己定义主题色，统一由 App.vue 的 CSS 变量驱动 */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-weight: normal;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  line-height: 1.6;
+  font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Oxygen,
+          Ubuntu,
+          Cantarell,
+          'Fira Sans',
+          'Droid Sans',
+          'Helvetica Neue',
+          sans-serif;
+  font-size: 15px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 颜色继承 App.vue 的令牌 */
+  color: var(--text-primary, #18181b);
+  background: transparent;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* 移动端字号微调 */
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+}
