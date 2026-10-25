@@ -13,6 +13,8 @@
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/vue": "^1.0.8",
+    "dompurify": "^3.4.17",
+    "marked": "^18.1.1",
     "motion-v": "^2.6.0",
     "ogl": "^1.0.11",
     "pinia": "^4.0.3",
