@@ -10,8 +10,9 @@ export const PUMP_BASE_MS = 220
 export const PUMP_MIN_MS = 40
 
 /**
- * `pending` 是队列里还没放出来的行数。规则：`base / (pending - 1)`，夹在 `[min, base]`。
+ * `pending` 是队列里还没放出来的行数。规则：`base / (pending - 1)`，且不低于 `min`。
  * 于是积压 6 条时约 44ms 一条（快速追平），排空过程中又回到 220ms 的正常节奏。
+ * 不需要再夹上限：`pending >= 2` 时 `base / (pending - 1)` 必然 `<= base`（这条由变异取证确认）。
  */
 export function nextPumpDelay(
   pending: number,
@@ -19,5 +20,5 @@ export function nextPumpDelay(
   min: number = PUMP_MIN_MS
 ): number {
   if (pending <= 1) return base
-  return Math.min(Math.max(Math.round(base / (pending - 1)), min), base)
+  return Math.max(Math.round(base / (pending - 1)), min)
 }
