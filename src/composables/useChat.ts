@@ -7,8 +7,9 @@
  * 2. retry 复用同一个 clientMsgId，regenerate 换新键（幂等键 + regenerate 标志是两套语义）；
  * 3. reasoning 不落库（用户 2026-10-24 的决定）—— 历史行的 steps 恒为空，刷新后思考线消失是预期行为。
  */
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { nextPumpDelay } from './thinkingPace'
 import {
   createConversation,
   fetchModelCatalog,
@@ -67,6 +68,59 @@ export function useChat() {
   let controller: AbortController | null = null
   /** 重试要复用这一份（含原 clientMsgId）；新一轮发送才换值 */
   let lastPayload: StreamPayload | null = null
+
+  /**
+   * 思考行的放帧队列。同一时刻只有一个活跃 turn，所以队列是单个闭包变量而不是 Map。
+   *
+   * 为什么要队列：后端一句一帧，但浏览器一次 read 能收到好几帧，直接 push 就是「几行同时冒出来」。
+   * endSeen 表示 thought_end 已到或流已结束 —— 只有「pending 排空 + endSeen」才收思考线，
+   * 这就是"等队列放完再收"。代价：思考线会比正文晚收最多 pending × 220ms（追平逻辑下通常远小于）。
+   */
+  let thinking: {
+    target: ChatTurn
+    pending: string[]
+    seconds: number | null
+    endSeen: boolean
+    timer: ReturnType<typeof setTimeout> | null
+  } | null = null
+
+  const closeThinking = (): void => {
+    const q = thinking
+    if (!q) return
+    if (q.timer != null) clearTimeout(q.timer)
+    q.timer = null
+    thinking = null
+    q.target.thinkingOpen = false
+    q.target.elapsed = q.seconds
+  }
+
+  const pumpThinking = (): void => {
+    const q = thinking
+    if (!q || q.timer != null) return
+    if (q.pending.length === 0) {
+      if (q.endSeen) closeThinking()
+      return
+    }
+    q.timer = setTimeout(() => {
+      const cur = thinking
+      if (!cur) return
+      cur.timer = null
+      const line = cur.pending.shift()
+      if (line) cur.target.steps.push(line)
+      pumpThinking()
+    }, nextPumpDelay(q.pending.length))
+  }
+
+  /** 强制收口：停止 / 出错 / 业务拒绝 / 切会话 / 新一轮发送时不等动画，剩下的行一次放完再收。 */
+  const flushThinking = (): void => {
+    const q = thinking
+    if (!q) return
+    if (q.pending.length) {
+      q.target.steps.push(...q.pending)
+      q.pending.length = 0
+    }
+    closeThinking()
+  }
 
   const activeModelKey = (): string | undefined =>
     conversations.value.find(c => c.id === activeId.value)?.modelKey ?? catalog.value?.defaultModel
@@ -185,6 +239,8 @@ export function useChat() {
       turn.thinkingOpen = false
       turn.status = 'truncated'
     }
+    // 停止是用户主动要的「现在就停」，所以队列不再逐行放，一次倒完就收
+    flushThinking()
     sending.value = false
     controller?.abort()
     const id = turn?.id
@@ -240,6 +296,9 @@ export function useChat() {
     // 流式期间就会出现「数据在涨、界面不动」。
     turn = messages.value[messages.value.length - 1]
     const activeTurn = turn
+    // 上一轮还有没放完的思考行就先倒完收起，再开这一轮的队列
+    flushThinking()
+    thinking = { target: activeTurn, pending: [], seconds: null, endSeen: false, timer: null }
     controller = new AbortController()
     try {
       await streamChat(payload, handlersFor(activeTurn), auth.token, controller.signal)
@@ -247,17 +306,23 @@ export function useChat() {
       if (!isAbort(err)) errorText.value = messageOf(err)
     } finally {
       activeTurn.settled = true
-      activeTurn.thinkingOpen = false
       sending.value = false
       controller = null
       void loadConversations()
+      // 这里不再直接收思考线：正文已经开始流了，队列还得把最后几行放完（用户要的是「等队列放完再收」）
+      const q = thinking
+      if (q && q.target === activeTurn) {
+        q.endSeen = true
+        pumpThinking()
+      }
     }
   }
 
   /**
-   * 帧 → 状态。每个回调都只认自己那一格：thought_step 只写 steps，delta 只写 content。
+   * 帧 → 状态。每个回调只认自己那一格：thought_step 只进队列，delta 只写 content。
    * 之所以每次都用 activeTurn 而不是模块级的 turn：切换会话会把 turn 置空，
    * 而迟到的帧仍会打进来 —— 让它写到自己那份快照上，不会污染新会话。
+   * 队列同理：只有 `thinking.target === target` 时才认这一帧，否则是上一轮的迟到帧。
    */
   const handlersFor = (target: ChatTurn) => ({
     onMeta: (meta: MetaPayload) => {
@@ -265,13 +330,23 @@ export function useChat() {
       if (!meta.supportsThinking) target.thinkingOpen = false
     },
     onThoughtStep: (step: string) => {
-      if (!step || target.settled) return
+      const q = thinking
+      if (!step || target.settled || !q || q.target !== target) return
       target.thinkingOpen = true
-      target.steps.push(step)
+      q.pending.push(step)
+      pumpThinking()
     },
     onThoughtEnd: (seconds: number) => {
-      target.thinkingOpen = false
-      target.elapsed = seconds
+      const q = thinking
+      if (!q || q.target !== target) {
+        target.thinkingOpen = false
+        target.elapsed = seconds
+        return
+      }
+      // 不在这里收：记下秒数，等队列放完由 closeThinking 收
+      q.seconds = seconds
+      q.endSeen = true
+      pumpThinking()
     },
     onDelta: (piece: string) => {
       if (piece && !target.settled) target.content += piece
@@ -281,7 +356,6 @@ export function useChat() {
     },
     onDone: (reason: string) => {
       target.settled = true
-      target.thinkingOpen = false
       target.stopReason = reason
       target.status = reason === 'upstream' ? 'failed' : TRUNCATED_REASONS.has(reason) ? 'truncated' : 'done'
       if (target.status === 'failed') target.failed = true
@@ -290,12 +364,13 @@ export function useChat() {
       target.failed = true
       target.retryable = err.retryable
       target.settled = true
-      target.thinkingOpen = false
+      flushThinking()
       errorText.value = err.msg
     },
     onReject: (msg: string) => {
       // 建流前就被拒绝：这条 assistant 占位根本没开始生成，撤掉它，问题行留着好改。
       errorText.value = msg
+      flushThinking()
       const index = messages.value.indexOf(target)
       if (index >= 0) messages.value.splice(index, 1)
       target.settled = true
@@ -307,6 +382,7 @@ export function useChat() {
       turn.settled = true
       turn.thinkingOpen = false
     }
+    flushThinking()
     controller?.abort()
     controller = null
   }
@@ -317,6 +393,14 @@ export function useChat() {
     }
     return -1
   }
+
+  // 离开页面时不留悬空 timer：队列里没放的行就不放了，这里只保证不把定时器漏给 GC。
+  // 注意不能在这里 flushThinking —— 那时组件已在卸载，往响应式数组里追加没有意义。
+  onScopeDispose(() => {
+    const q = thinking
+    if (q && q.timer != null) clearTimeout(q.timer)
+    thinking = null
+  })
 
   return {
     catalog,

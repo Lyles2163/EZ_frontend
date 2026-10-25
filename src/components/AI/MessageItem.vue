@@ -42,6 +42,9 @@ const showActions = computed(() => props.turn.failed && !props.turn.fromHistory)
           :label="label"
           :done-label="doneLabel"
           :settle-after="0"
+          :step-shimmer="true"
+          :shimmer="false"
+          :breath-depth="0"
       />
       <MarkdownBody v-if="turn.content" :source="turn.content" :done="turn.settled" />
       <p v-else-if="stoppedWhileThinking" class="turn-note">已停止（模型还在思考）</p>

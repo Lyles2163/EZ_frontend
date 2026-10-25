@@ -38,6 +38,8 @@ interface ThoughtLineProps {
   settleAfter?: number;
   elapsed?: number;
   showTimer?: boolean;
+  /** 呼吸闪烁从标题挪到「正在出的那一行」；默认关，保持原有调用方的外观 */
+  stepShimmer?: boolean;
   className?: string;
 }
 
@@ -73,6 +75,7 @@ const props = withDefaults(defineProps<ThoughtLineProps>(), {
   settleAfter: 0,
   elapsed: undefined,
   showTimer: true,
+  stepShimmer: false,
   className: ''
 });
 
@@ -367,7 +370,10 @@ const rootStyle = computed(
                   class="block bg-current rounded-full w-[0.4em] h-[0.4em] [animation:thought-line-pulse_1.6s_cubic-bezier(0.77,0,0.175,1)_infinite] motion-reduce:[animation-duration:2.4s]"
               />
             </span>
-            <span class="group-data-[done]/step:opacity-55 [transition:opacity_var(--tl-settle)_ease]">
+            <span
+                class="group-data-[done]/step:opacity-55 [transition:opacity_var(--tl-settle)_ease]"
+                :class="{ 'tl-step-shimmer': stepShimmer && isWorking && i === steps.length - 1 }"
+            >
               {{ text }}
             </span>
           </div>
@@ -390,6 +396,31 @@ const rootStyle = computed(
 @keyframes thought-line-shimmer {
   to {
     background-position: -125% 0;
+  }
+}
+/* 与标题那套 shimmer 同一套渐变，只是作用在「正在出的那一行」的文字上。
+   --tl-color / --tl-shimmer 都从根节点继承，所以颜色与节奏跟标题完全一致。 */
+.tl-step-shimmer {
+  background-image: linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--tl-color) 50%, transparent) 30%,
+      var(--tl-color) 50%,
+      color-mix(in srgb, var(--tl-color) 50%, transparent) 70%
+  );
+  background-size: 250% 100%;
+  background-position: 125% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: thought-line-shimmer var(--tl-shimmer) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-step-shimmer {
+    animation: none;
+    background: none;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
   }
 }
 </style>
