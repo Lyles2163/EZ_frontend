@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ConversationList from '../../components/AI/ConversationList.vue'
 import SpecularButton from '../../components/button/SpecularButton.vue'
 import { useTheme } from '../../composables/useTheme'
+import { useChat } from '../../composables/useChat'
 import { useAuthStore } from '../../stores/auth'
 
 type NavItem = {
@@ -17,6 +19,7 @@ const theme = useTheme()
 const collapsed = ref(false)
 const route = useRoute()
 const router = useRouter()
+const chat = useChat()
 
 const ICONS: Record<string, string> = {
   plus: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -45,6 +48,19 @@ const activeKey = computed(() => navItems.find(item => item.to === route.path)?.
 
 const auth = useAuthStore()
 
+/** 会话列表只属于对话模块：其它 /ai/* 页面挂着它没有意义。 */
+const isChatRoute = computed(() => route.path === '/ai')
+const showConversations = computed(() => isChatRoute.value && !collapsed.value && auth.isLoggedIn)
+
+// 进 /ai 就把列表拉一次；Chat.vue 里每轮结束也会刷。空列表才拉，避免来回切页面就打接口。
+watch(
+    showConversations,
+    visible => {
+      if (visible && !chat.conversations.value.length) void chat.loadConversations()
+    },
+    { immediate: true }
+)
+
 const goLogin = () => {
   if (route.path !== '/login') router.push('/login')
 }
@@ -52,6 +68,12 @@ const goLogin = () => {
 const handleNav = (item: NavItem) => {
   if (item.external) {
     console.log('open external:', item.key)
+    return
+  }
+  if (item.key === 'chat') {
+    // 「New chat」是开一轮新的，不是重进页面：先清视图再跳，已经在 /ai 时也要有反应
+    chat.newConversation()
+    if (route.path !== '/ai') router.push('/ai')
     return
   }
   if (item.to && item.to !== route.path) router.push(item.to)
@@ -111,6 +133,15 @@ const loginSpecular = computed(() => {
           </button>
         </nav>
       </div>
+
+      <ConversationList
+          v-if="showConversations"
+          :items="chat.conversations.value"
+          :active-id="chat.activeId.value"
+          :has-more="!!chat.nextCursor.value"
+          @select="chat.openConversation"
+          @more="chat.moreConversations"
+      />
 
       <!-- /ai 已要求登录，登录态下再挂着「Log in」引导就是错内容 -->
       <div v-if="!collapsed && !auth.isLoggedIn" class="sidebar-bottom">
@@ -220,6 +251,10 @@ const loginSpecular = computed(() => {
   }
 }
 
+.sidebar-top {
+  flex: none;
+}
+
 .brand-row {
   display: flex;
   align-items: center;
@@ -300,6 +335,7 @@ const loginSpecular = computed(() => {
 
 /* ===================== 侧边栏底部 ===================== */
 .sidebar-bottom {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -371,6 +407,7 @@ const loginSpecular = computed(() => {
   .sidebar .brand,
   .sidebar .nav-label,
   .sidebar .nav-ext,
+  .sidebar .convs,
   .sidebar .sidebar-bottom { display: none; }
 }
 </style>

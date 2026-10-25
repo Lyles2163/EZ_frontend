@@ -7,7 +7,7 @@
  * 2. retry 复用同一个 clientMsgId，regenerate 换新键（幂等键 + regenerate 标志是两套语义）；
  * 3. reasoning 不落库（用户 2026-10-24 的决定）—— 历史行的 steps 恒为空，刷新后思考线消失是预期行为。
  */
-import { computed, onScopeDispose, ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { nextPumpDelay } from './thinkingPace'
 import {
@@ -52,7 +52,7 @@ export interface ChatTurn {
 /** 后端 ChatStreamService 实际会往 done 帧里塞这几个串（AiMessage.STOP_*） */
 const TRUNCATED_REASONS = new Set(['stopped', 'length', 'timeout', 'client_disconnect'])
 
-export function useChat() {
+function createChat() {
   const auth = useAuthStore()
 
   const catalog = ref<ModelCatalog | null>(null)
@@ -190,6 +190,19 @@ export function useChat() {
     } catch (err) {
       errorText.value = messageOf(err)
     }
+  }
+
+  /**
+   * 侧边栏「New chat」走这里：只清空视图，不发 POST。
+   * 真到第一次发送时 send() 里再 startConversation() —— 点一下就建一条空会话，
+   * 列表里会攒出一堆 messageCount=0 的垃圾行。
+   */
+  const newConversation = (): void => {
+    abortLocal()
+    activeId.value = null
+    messages.value = []
+    errorText.value = ''
+    lastPayload = null
   }
 
   const send = async (text: string, modelKey?: string, effort?: string): Promise<void> => {
@@ -396,11 +409,14 @@ export function useChat() {
 
   // 离开页面时不留悬空 timer：队列里没放的行就不放了，这里只保证不把定时器漏给 GC。
   // 注意不能在这里 flushThinking —— 那时组件已在卸载，往响应式数组里追加没有意义。
-  onScopeDispose(() => {
-    const q = thinking
-    if (q && q.timer != null) clearTimeout(q.timer)
-    thinking = null
-  })
+  // 单例可能由任意一个组件首次创建，没有活动 scope 时别调 onScopeDispose（Vue 会警告）。
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      const q = thinking
+      if (q && q.timer != null) clearTimeout(q.timer)
+      thinking = null
+    })
+  }
 
   return {
     catalog,
@@ -418,11 +434,25 @@ export function useChat() {
     moreConversations,
     openConversation,
     startConversation,
+    newConversation,
     send,
     stop,
     regenerate,
     retry
   }
+}
+
+export type Chat = ReturnType<typeof createChat>
+
+/**
+ * 单例。会话列表挂在 Layout.vue、消息区挂在 Chat.vue，两边必须是同一份状态 ——
+ * 各自 new 一份的话，侧边栏点了会话，消息区不会跟着换。
+ */
+let shared: Chat | null = null
+
+export function useChat(): Chat {
+  if (!shared) shared = createChat()
+  return shared
 }
 
 function toTurn(item: ChatMessage): ChatTurn {

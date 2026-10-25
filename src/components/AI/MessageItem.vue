@@ -67,7 +67,6 @@ const showActions = computed(() => props.turn.failed && !props.turn.fromHistory)
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  max-width: 760px;
 }
 .turn-body {
   margin: 0;

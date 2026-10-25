@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import ConversationList from '../../components/AI/ConversationList.vue'
 import MessageItem from '../../components/AI/MessageItem.vue'
 import PromptBar from '../../components/AI/PromptBar.vue'
 import type { PromptBarSendDetail } from '../../components/AI/PromptBar.vue'
@@ -12,12 +11,8 @@ const chat = useChat()
 
 // useChat 返回的是「装着 ref 的普通对象」：模板里只有顶层 ref 会自动解构，
 // chat.messages 是嵌套属性，所以一次性解构出来用，避免 .value 与不解构混写。
-const {
-  catalog, catalogError, conversations, nextCursor, activeId, messages,
-  sending, errorText, currentModel, currentModelSupportsThinking
-} = chat
+const { catalog, catalogError, messages, sending, errorText } = chat
 
-const showList = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 
 const promptColors = computed(() =>
@@ -51,17 +46,6 @@ const send = async (text: string, detail: PromptBarSendDetail): Promise<void> =>
   scrollToEnd()
 }
 
-const open = async (id: number): Promise<void> => {
-  await chat.openConversation(id)
-  showList.value = false
-  scrollToEnd()
-}
-
-const create = async (): Promise<void> => {
-  await chat.startConversation()
-  showList.value = false
-}
-
 const attach = (): string[] => []
 const dictate = (): string => ''
 
@@ -72,45 +56,30 @@ watch(
   scrollToEnd
 )
 
-onMounted(async () => {
-  await chat.loadCatalog()
-  await chat.loadConversations()
+// 会话列表归 Layout.vue（它挂在侧边栏里），这里只负责目录
+onMounted(() => {
+  void chat.loadCatalog()
 })
 </script>
 
 <template>
   <section class="chat-page">
-    <ConversationList
-        v-if="showList"
-        :items="conversations"
-        :active-id="activeId"
-        :has-more="!!nextCursor"
-        @select="open"
-        @create="create"
-        @more="chat.moreConversations"
-    />
-
     <div class="chat-main">
-      <header class="chat-head">
-        <button class="chat-toggle" @click="showList = !showList">对话列表</button>
-        <span v-if="currentModel" class="chat-model">
-          {{ currentModel.name }}
-          <em v-if="currentModelSupportsThinking">· 思考线</em>
-        </span>
-      </header>
-
       <div v-if="!hasMessages" class="chat-hero">
         <h1 class="greeting">问点什么</h1>
       </div>
 
       <div v-else ref="scroller" class="chat-scroll">
-        <MessageItem
-            v-for="turn in messages"
-            :key="turn.key"
-            :turn="turn"
-            @retry="chat.retry"
-            @regenerate="chat.regenerate"
-        />
+        <!-- 限宽居中：消息列与输入框同宽，两边留白，正文不再铺满整屏 -->
+        <div class="chat-inner">
+          <MessageItem
+              v-for="turn in messages"
+              :key="turn.key"
+              :turn="turn"
+              @retry="chat.retry"
+              @regenerate="chat.regenerate"
+          />
+        </div>
       </div>
 
       <p v-if="errorText || catalogError" class="chat-error">{{ errorText || catalogError }}</p>
@@ -132,7 +101,7 @@ onMounted(async () => {
             :menu-background="promptColors.menuBackground"
             :spark-color="promptColors.sparkColor"
             :spark-boost="1"
-            :width="680"
+            :width="760"
             :radius="26"
             :max-rows="5"
             :morph-duration="240"
@@ -160,26 +129,6 @@ onMounted(async () => {
   flex-direction: column;
   padding: 0 24px 20px;
 }
-.chat-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 44px;
-  flex: none;
-}
-.chat-toggle {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.chat-model { font-size: 13px; color: var(--text-muted); }
-.chat-model em { font-style: normal; color: var(--text); }
 .chat-hero {
   flex: 1;
   display: grid;
@@ -198,12 +147,20 @@ onMounted(async () => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   padding: 4px 0 16px;
+}
+/* 与 PromptBar 的 :width 同一个数，两列边线才对得齐 */
+.chat-inner {
+  width: min(100%, 760px);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .chat-error {
   flex: none;
-  margin: 0 0 10px;
+  width: min(100%, 760px);
+  margin: 0 auto 10px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -214,7 +171,7 @@ onMounted(async () => {
 .prompt-wrap {
   flex: none;
   width: 100%;
-  max-width: 680px;
+  max-width: 760px;
   margin: 0 auto;
 }
 @media (max-width: 767px) {

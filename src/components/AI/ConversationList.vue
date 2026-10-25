@@ -9,7 +9,6 @@ defineProps<{
 
 const emit = defineEmits<{
   select: [id: number]
-  create: []
   more: []
 }>()
 
@@ -24,10 +23,11 @@ const fmtTime = (ms: number): string => {
 </script>
 
 <template>
-  <aside class="conv">
-    <button class="conv-new" @click="emit('create')">＋ 新对话</button>
+  <!-- 挂在 Layout 的侧边栏里，所以宽度、显隐、收起都归父级：这里只做一列能滚的列表 -->
+  <div class="convs">
+    <p class="convs-label">对话</p>
 
-    <ul class="conv-list">
+    <ul class="convs-list">
       <li v-for="item in items" :key="item.id">
         <button
             class="conv-item"
@@ -44,32 +44,28 @@ const fmtTime = (ms: number): string => {
 
     <button v-if="hasMore" class="conv-more" @click="emit('more')">加载更多</button>
     <p v-if="!items.length" class="conv-empty">还没有对话</p>
-  </aside>
+  </div>
 </template>
 
 <style scoped>
-/* 显隐由父级 Chat.vue 的 v-if 控制：这个组件不掺和断点，也不写 display:none */
-.conv {
+.convs {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   flex-direction: column;
-  gap: 8px;
-  width: 232px;
-  flex: 0 0 232px;
-  padding: 12px 8px;
-  border-right: 1px solid var(--border);
-  overflow: hidden;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
-.conv-new {
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
+.convs-label {
+  margin: 0 0 2px;
+  padding: 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
-.conv-new:hover { background: var(--sb-hover); }
-.conv-list {
+.convs-list {
   flex: 1;
   min-height: 0;
   margin: 0;
@@ -86,7 +82,7 @@ const fmtTime = (ms: number): string => {
   align-items: flex-start;
   gap: 2px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -105,21 +101,23 @@ const fmtTime = (ms: number): string => {
   font-weight: 500;
 }
 .conv-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 .conv-more {
-  height: 30px;
+  height: 28px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
+  font-size: 12px;
   cursor: pointer;
 }
+.conv-more:hover { background: var(--sb-hover); }
 .conv-empty {
-  margin: 8px 4px;
-  font-size: 13px;
+  margin: 4px 10px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 </style>
