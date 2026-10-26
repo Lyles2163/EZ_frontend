@@ -45,11 +45,19 @@
 
 ```
 src/api/practice/
-  types.ts          响应接口 + AnswerStatus 常量 + 每接口的形状校验函数
-                    encodeUserAnswer / decodeUserAnswer / normalizePage / errorText / createSeqGuard
+  types.ts          响应接口 + answerStatus 四态常量 + 每接口的形状校验函数
+  answer.ts         题型常量 + encodeUserAnswer / decodeUserAnswer + 答题卡四态 + canSelfJudge
+  paging.ts         pageSize 上限与 clamp + normalizePage（hasPrev/hasNext 只看 pages）
+  errors.ts         code → 中文文案映射（errorText）
+  http.ts           buildQuery（丢掉空参，保证 subjectId/questionId 互斥）+ createSeqGuard
   subject.ts        GET /practice/subject/list
   question.ts       GET question/page · GET question/current · POST answer/submit · POST answer/self-judge
   wrongFavorite.ts  GET wrong/page · POST wrong/master · GET favorite/page · POST favorite/toggle
+
+  > **计划阶段更正（2026-10-26）**：本清单原本把 `encodeUserAnswer / normalizePage / errorText / createSeqGuard`
+  > 全塞在 `types.ts` 一行里。拆开的原因不是洁癖：契约（后端改字段）、题目语义（题型形态）、
+  > 视图口径（分页与文案）、请求管道（拼串与竞态）四件事的变化原因各不相同，
+  > 放一个文件里会长成一个几百行的杂物袋，而改动时互相牵连。
 
 src/composables/
   useSubjects.ts    科目列表 + 当前科目（读写 store）

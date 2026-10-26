@@ -3637,4 +3637,31 @@ qid=4 subject=2 title=植物通过____作用将光能转化为化学能。 answe
 
 顺手钉了 Task 15 要点的真实 id：语文（科目 1）= `type1:1/6`、`type2:2`、`type5:5`；数学（科目 2）= `type1:7`、`type3:3`、`type4:4`。**五种题型都能点到，但判断/填空只在科目 2、多选/简答只在科目 1**，实跑必须来回切两科。
 
+### Task 3（完成，2026-10-26）
+
+**先红**：`npm run test:vitest -- …/types.spec.ts` → `Failed to resolve import "../types"`（`Test Files 1 failed / Tests no tests`）。
+
+**第一次绿之前有两条真红**（不是配置问题，是实现的报文不够可诊断）：
+
+```
+AssertionError: expected [Function] to throw error matching /statDelta/
+  but got 'POST /practice/answer/submit 响应格式异常：期望对象，实得 undefined'
+```
+
+`statDelta` 整个缺失时，我先走到 `asObject(undefined)`，报文只说"期望对象"——**看不出是哪个字段坏的**，而这正是形状校验存在的全部理由。没有把断言放宽成 `toThrowError(HttpError)`，而是把 `parseStatDelta` 改成接 `(o, where)` 并显式判缺失：报文变成 `…：statDelta 期望对象，实得 undefined`。两处调用点（submit / self-judge）一起改。
+
+**绿灯**：
+
+```
+$ npm test
+ℹ pass 19  ℹ fail 0                       ← node:test 三个文件（未动）
+ Test Files  2 passed (2)
+      Tests  24 passed (24)               ← smoke 2 + types 22
+$ npm run type-check                      ← 无 error TS
+```
+
+22 条里有三条是"形状校验是不是活的"的直接证据：`越界页的真 total 必须照抄回来`（防"空 list 就当没题"）、`finished 形态里 answerStatus 也是 null 必须通过`（防把可空字段写成必填）、`待自评样本里 isCorrect 是 null 而不是 false`。
+
+spec §2 的文件清单按本任务 Step 6 更正为 `types/answer/paging/errors/http` 五个文件，并写了拆分理由。提交：types.ts + fixtures.ts + types.spec.ts + spec 更正。
+
 （从这里往下继续填。）
