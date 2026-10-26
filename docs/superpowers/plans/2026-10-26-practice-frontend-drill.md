@@ -3678,4 +3678,30 @@ spec §2 的文件清单按本任务 Step 6 更正为 `types/answer/paging/error
 
 提交：`answer.ts` + `answer.spec.ts`。
 
+### Task 5（完成，2026-10-26）
+
+**先红**：`http.spec.ts` → `Test Files 1 failed / Tests no tests`（`../http` 不存在）。
+
+**绿灯**：
+
+```
+ℹ tests 19  ℹ pass 19  ℹ fail 0        ← node:test（未动）
+ Test Files  7 passed (7)
+      Tests  73 passed | 1 skipped (74)
+$ npm run type-check                    ← 无 error TS
+```
+
+**一次伪阳性实测（证明分页判据的测试是活的）**：把 `hasNext` 从 `vo.pages > 0 && vo.pageNum < vo.pages` 改成看起来更"直觉"的 `vo.list.length > 0`，`paging.spec.ts` 当场红一条：
+
+```
+× 最后一页
+AssertionError: expected true to be false
+```
+
+改回后 `Tests 7 passed (7)`。**这就是为什么"下一页"不能看 list 长度** —— 最后一页当然有数据，但按 `list.length` 判会给用户留一个点了必空的下一页；越界页更是直接空 list 却仍有 `total`。
+
+比计划多做的一条：`buildQuery({ mode: 0 })` 必须保留 `?mode=0`（0 是"看起来像空"的合法值），以及 `createSeqGuard()` 的 `isCurrent` 加了 `seq > 0` 前置，让"没发过请求时任何 token 都不算当前"这条有实现支撑而不是巧合。
+
+提交：`http.ts` / `paging.ts` / `errors.ts` / `src/utils/datetime.ts` + 四份 spec。
+
 （从这里往下继续填。）
