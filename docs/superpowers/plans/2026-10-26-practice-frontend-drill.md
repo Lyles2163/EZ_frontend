@@ -3748,4 +3748,43 @@ $ npm run type-check                      ← error TS 计数 0
 
 提交：`src/stores/practice.ts` + `src/stores/__tests__/practice.spec.ts` + `src/composables/useSubjects.ts`。
 
+### Task 8（代码完成；两条浏览器判据里第 2 条待实跑，2026-10-26）
+
+**服务前提取证**（事实清单 21）：
+
+```
+8100 LISTENING 3924   8102 LISTENING 8544   8103 LISTENING 17828   5173 LISTENING 428(我起的 vite)
+$ curl http://127.0.0.1:8102/practice/subject/list        → 200 {"code":40100,"msg":"用户身份不存在，请重新登录"}
+$ curl http://127.0.0.1:8100/practice/subject/list        → 401 {"code":401,"message":"缺少或无效的授权头"}
+```
+
+8102 的监听进程**不是我起的**（用户自己起的实例）。本轮不改后端代码，所以这不影响结论，但取证时按事实清单 21 的要求把 PID 记下来了。
+
+**判据 1 实测通过**（不需要登录态）：浏览器打开 `http://localhost:5173/practice`，落地
+
+```
+href = http://localhost:5173/login?redirect=/practice/subject     且 hasLoginForm = true
+```
+
+`redirect` 指到 `/practice/subject` 说明"父路由 meta 被子路由继承"与 `'' → redirect` 两条都成立。
+
+**判据 2（科目卡数字）没有跑成**，原因是凭证而不是代码：这台机器上 `EZ_PW` 未设（bash、Windows 用户/机器级 env 都查过，均为空），而登录要图形验证码 + 口令。按"口令不进文件/日志/终端输出"的既有规则，我没有把测试账号口令写进任何命令或文件，**这条判据目前是空的，不是通过**。Task 10–14 的浏览器步骤同样会被它挡住，全部推到 Task 15 一次性打完（届时需要用户提供 `EZ_PW` 或自己在浏览器里登一次）。
+
+**这一任务代码侧的绿灯**：
+
+```
+ℹ fail 0
+ Test Files  9 passed (9)
+      Tests  97 passed | 1 skipped (98)
+$ npm run type-check      ← 无 error TS
+$ npm run build-only      ← ✓ built in 2.04s
+```
+
+**执行期改掉的两处计划外问题**：
+
+1. `Layout.vue` 的四个导航项直接 `RouterLink :to="{name:'practice-drill'}"` 会在**路由还没注册时**就抛（Task 10/13/14 才接那三条）。改成 `navItems = NAV.filter(i => router.hasRoute(i.name))` —— 只渲染已注册的，这才是"每步绿就提交"能成立的前提。
+2. `ErrorBar` 的关闭事件在模板里给模块级 ref 赋值（`@dismiss="error = null"`）不稳，按计划改成 `dismissError()` 函数。
+
+`git rm src/views/Practice/Index.vue` 已执行（占位页删除）。
+
 （从这里往下继续填。）

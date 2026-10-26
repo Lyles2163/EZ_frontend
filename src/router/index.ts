@@ -25,9 +25,20 @@ const router = createRouter({
     },
     {
       path: '/practice',
-      name: 'practice',
-      component: () => import('../views/Practice/Index.vue'),
-      meta: { title: '刷题模块' }
+      component: () => import('../views/Practice/Layout.vue'),
+      // 练习侧 9 个接口全部要身份（无令牌直连回 40100，经网关回 HTTP 401），
+      // 未登录进来只会是一屏错误条，不如挡在登录页
+      meta: { title: '刷题模块', requiresAuth: true },
+      children: [
+        { path: '', redirect: { name: 'practice-subject' } },
+        {
+          path: 'subject',
+          name: 'practice-subject',
+          component: () => import('../views/Practice/Subject.vue'),
+        },
+        // practice-drill / practice-wrong / practice-favorite 分别在 Task 10 / 13 / 14 接上：
+        // 现在写了会让 vue-tsc 去 import 还不存在的文件，type-check 必红
+      ],
     },
     {
       path: '/ai',
