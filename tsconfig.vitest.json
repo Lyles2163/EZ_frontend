@@ -1,0 +1,17 @@
+// tsconfig.vitest.json
+//
+// tsconfig.app.json 的 exclude 把 src/**/__tests__/* 整片挡在类型检查外面，
+// 而 vitest 只剥类型不检查 —— 于是"契约防线"的测试自己是不被类型检查的。
+// 这条独立命令补上。它不进根 tsconfig 的 references：vue-tsc --build 要求被引用项目
+// composite: true，而 tsconfig.app.json 没设，加它会连锁改 noEmit，风险大于收益。
+{
+  "extends": "./tsconfig.app.json",
+  "include": ["env.d.ts", "src/**/*.spec.ts"],
+  // 必须显式清空：exclude 会从 tsconfig.app.json 继承下来，而那里挡掉了
+  // src/**/__tests__/* —— 于是 include 命中的测试文件被 exclude 二次滤空，
+  // type-check 一条不查还照样报绿（实测把 `const x: number = "s"` 塞进 spec 也无声）。
+  "exclude": [],
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}

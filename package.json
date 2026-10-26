@@ -8,7 +8,10 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build && vue-tsc --noEmit -p tsconfig.vitest.json",
+    "test": "run-s test:node test:vitest",
+    "test:node": "node --test \"src/**/__tests__/*.test.ts\"",
+    "test:vitest": "vitest run"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.3.5",
@@ -35,6 +38,7 @@
     "typescript": "~6.0.0",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1",
+    "vitest": "^5.0.5",
     "vue-tsc": "^3.3.11"
   },
   "engines": {
