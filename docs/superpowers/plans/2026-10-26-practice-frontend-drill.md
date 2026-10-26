@@ -3825,4 +3825,21 @@ $ npm run build-only   ← ✓ built in 808ms
 
 提交：`answer.ts`(+initialModel)、`answer.spec.ts`、`useDrill.ts`、`useDrill.spec.ts`、`Drill.vue`、`router/index.ts`、`fixtures.ts`。
 
+### Task 11（代码已随 Task 10 交付；浏览器判据归 Task 15）
+
+无新提交。`judge()`、两个自评按钮、`judgedTip`、`showAnswer` 的隐藏条件都在 `8fec6e7` 里，并由 `useDrill.spec.ts` 的三条覆盖：`needSelfJudge 时 showAnswer=false，自评后才展开`、`刷新后来自评：没有 result 可展开，但态与统计照样收敛`、`提交期间切了题…`。剩下"响应里有答案、屏幕上没有"的 F12 对比与两标签页触发 40900 两条要等登录态（Task 15）。
+
+### Task 12（代码完成；浏览器六条待实跑，2026-10-26）
+
+`AnswerCard.vue` 建好并接进 `Drill.vue`。四态色全部 `var(--p-*)`，**没有新增十六进制值** —— 计划里那两条 `color: #fff` 换成了 `var(--primary-contrast)`（主色上的文字色，亮色下是白、暗色下是深黑，正好跟着主题走）。
+
+**这一任务顺带把"点格子/点下一题"的身份来源统一到了 URL**，因为原计划两处都有洞：
+
+- 「下一题」直接调 `drill.open(...)`，URL 上的 `?questionId` 会留在上一题 → 刷新回到旧题。
+- 点答题卡某一格时，如果那一格正好等于 URL 里已有的 id，`watch` 不触发 → **点了没反应**。
+
+改成 `navigateTo(target)`：先 `router.replace` 换 query、由 `watch` 接手取题；只有 URL 已经是目标时才直接取。换科目也走它（顺带清掉上一科遗留的 `questionId`）。这条判据留到 Task 15 用浏览器复核。
+
+绿灯：`Test Files 10 / Tests 109 passed | 1 skipped`、`type-check` 无 error、`build-only ✓ 813ms`。
+
 （从这里往下继续填。）

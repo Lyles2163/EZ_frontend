@@ -1,26 +1,55 @@
 <!-- src/views/Practice/Drill.vue -->
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import AnswerCard from '../../components/practice/AnswerCard.vue'
 import EmptyState from '../../components/practice/EmptyState.vue'
 import ErrorBar from '../../components/practice/ErrorBar.vue'
 import QuestionBody from '../../components/practice/QuestionBody.vue'
-import { useDrill } from '../../composables/useDrill'
+import { useDrill, type DrillTarget } from '../../composables/useDrill'
 import { useSubjects } from '../../composables/useSubjects'
 
 const route = useRoute()
+const router = useRouter()
 const { current: currentSubject, ensure } = useSubjects()
 const drill = useDrill(() => currentSubject.value?.id ?? null)
 
+/** URL 上的 questionId 是"我在做哪一题"的唯一真相：刷新要能还原，错题本也要能跳进来 */
 function queryQuestionId(): number | null {
   const raw = route.query.questionId
-  const id = Number(Array.isArray(raw) ? raw[0] : raw)
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const id = Number(value)
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
 function openCurrent(): void {
   const qid = queryQuestionId()
   void drill.open(qid !== null ? { kind: 'question', questionId: qid } : { kind: 'mode', mode: drill.mode.value })
+}
+
+/**
+ * 先改 URL、由 watch 去取题，这样"点下一题"和"点答题卡某一格"都留得下痕迹（刷新能还原）。
+ * URL 已经就是目标时才直接取 —— 否则 router.replace 不会触发 watch，点了没反应。
+ */
+function navigateTo(target: DrillTarget): void {
+  const wanted = target.kind === 'question' ? String(target.questionId) : ''
+  const current = queryQuestionId() === null ? '' : String(queryQuestionId())
+  if (wanted === current) {
+    void drill.open(target)
+    return
+  }
+  void router.replace({
+    name: 'practice-drill',
+    query: wanted ? { questionId: wanted } : {},
+  })
+}
+
+function selectCell(questionId: number): void {
+  navigateTo({ kind: 'question', questionId })
+}
+
+function nextQuestion(): void {
+  navigateTo({ kind: 'mode', mode: drill.mode.value })
 }
 
 function percent(accuracy: number): string {
@@ -42,10 +71,10 @@ onMounted(async () => {
 // 所以换科目必须看 currentSubject 的 id，否则答题卡与题目都停在上一科
 watch(() => currentSubject.value?.id, () => {
   void drill.loadCard()
-  void drill.open({ kind: 'mode', mode: drill.mode.value })
+  navigateTo({ kind: 'mode', mode: drill.mode.value })
 })
 
-// 从错题本/收藏本点进来是同一个页面，只是 query 变了
+// 从错题本/答题卡进来是同一个页面，只是 query 变了
 watch(() => route.query.questionId, openCurrent)
 </script>
 
@@ -61,9 +90,9 @@ watch(() => route.query.questionId, openCurrent)
       </div>
       <div class="modes">
         <button class="chip" :class="{ 'chip--on': drill.mode.value === 1 }"
-                type="button" @click="drill.open({ kind: 'mode', mode: 1 })">顺序练习</button>
+                type="button" @click="navigateTo({ kind: 'mode', mode: 1 })">顺序练习</button>
         <button class="chip" :class="{ 'chip--on': drill.mode.value === 3 }"
-                type="button" @click="drill.open({ kind: 'mode', mode: 3 })">智能练习</button>
+                type="button" @click="navigateTo({ kind: 'mode', mode: 3 })">智能练习</button>
       </div>
       <button class="ghost" type="button" @click="drill.toggleFav()">
         {{ drill.favorited.value ? '取消收藏' : '收藏本题' }}
@@ -75,7 +104,7 @@ watch(() => route.query.questionId, openCurrent)
     <EmptyState v-if="drill.finished.value"
                 title="这一科已经全部作答"
                 hint="换个模式，或者去错题本看看没掌握的题目。">
-      <button class="ghost" type="button" @click="drill.open({ kind: 'mode', mode: 3 })">智能练习</button>
+      <button class="ghost" type="button" @click="navigateTo({ kind: 'mode', mode: 3 })">智能练习</button>
     </EmptyState>
 
     <template v-else-if="drill.question.value">
@@ -89,8 +118,7 @@ watch(() => route.query.questionId, openCurrent)
         <button class="primary" type="button" :disabled="drill.busy.value" @click="drill.submit()">
           {{ drill.busy.value ? '提交中…' : '提交答案' }}
         </button>
-        <button v-if="drill.result.value" class="ghost" type="button"
-                @click="drill.open({ kind: 'mode', mode: drill.mode.value })">下一题</button>
+        <button v-if="drill.result.value" class="ghost" type="button" @click="nextQuestion()">下一题</button>
       </div>
 
       <p v-if="drill.judgedTip.value" class="tip">{{ drill.judgedTip.value }}</p>
@@ -133,6 +161,12 @@ watch(() => route.query.questionId, openCurrent)
     <p v-else-if="!drill.loading.value && !drill.error.value" class="tip">
       这道题暂时打不开，换个模式或去列表里点一道。
     </p>
+
+    <AnswerCard
+        :cells="drill.cardCells.value"
+        :current-id="drill.currentId.value"
+        @select="selectCell"
+    />
   </section>
 </template>
 
