@@ -3734,4 +3734,18 @@ $ npm run type-check                      ← error TS 计数 0
 
 提交：`subject.ts` / `question.ts` / `wrongFavorite.ts` + `api.spec.ts`。
 
+### Task 7（完成，2026-10-26）
+
+**先红**：`npm run test:vitest -- src/stores/__tests__/practice.spec.ts` → `Test Files 1 failed / Tests no tests`（`../practice` 不存在）。这次红灯真的跑在前面。
+
+**绿灯**：store 5 条全过；全量 `Test Files 9 passed (9)` / `Tests 97 passed | 1 skipped (98)`；`npm run type-check` 的 error TS 计数 0。
+
+三条值得记的判据：
+
+- `node 环境没有 localStorage：初始化与写入都不许崩` —— 计划里预判的那个 `ReferenceError` 只有在 `try` 块**内**发生才接得住，所以 `read()` 里那句 `localStorage.getItem` 必须在 try 里。这条测试就是钉这件事的。
+- `readStoredSubject('0')` 回 null 的理由补进了测试注释：0 会被原样带上 `question/page`，后端回 40400，不如在这里就回落"第一科"。另外加了 `'Infinity'` 与 `'2 次'` 两种脏形态。
+- `useSubjects` 是**模块级单例**（refs 在函数外），五个调用点共享一份列表与一个 seq guard；`ensure()` 让来回切页面不重复打接口。科目 id 失效（被停用/不在启用列表）时 `reload` 直接回落到第一科，而不是抱着坏 id 反复撞 40900。
+
+提交：`src/stores/practice.ts` + `src/stores/__tests__/practice.spec.ts` + `src/composables/useSubjects.ts`。
+
 （从这里往下继续填。）
