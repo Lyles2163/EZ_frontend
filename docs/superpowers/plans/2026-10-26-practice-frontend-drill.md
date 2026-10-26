@@ -3664,4 +3664,18 @@ $ npm run type-check                      ← 无 error TS
 
 spec §2 的文件清单按本任务 Step 6 更正为 `types/answer/paging/errors/http` 五个文件，并写了拆分理由。提交：types.ts + fixtures.ts + types.spec.ts + spec 更正。
 
+### Task 4（完成，2026-10-26）
+
+**先红**：`npm run test:vitest -- …/answer.spec.ts` → `Test Files 1 failed / Tests no tests`（模块不存在）。
+
+**绿灯**：`Tests 25 passed | 1 skipped (26)` —— 跳过的那条是 `freeform` 分支的断言，`BLANK_MODE='counted'` 下必然跳过，**它留在文件里是为了数据形态一变时测试先叫，不是为了凑数**。
+
+三条值得单独说的判据：
+
+- `多选的空数组回 null 而不是 []`：`[]` 会被 `encode` 拒，回填成 `[]` 等于给一题注定失败的态。这条是写 `decode` 时想明白的，不在原计划里。
+- `编码结果是合法单值文档，拼上第二个值就不是`：`JSON.parse('"A" "B"')` 必抛 —— 这条把段 2 那次独立审查抓到的类缺陷钉在测试里（Jackson 宽松、MySQL 严格）。
+- `提交后迁移：待自评优先于 isCorrect`：断言走的是 `parseAnswerSubmit(真实字节)` 而不是 `as never` 强类型塞进去（计划里原本写的是后者，那等于跳过契约层自己造一个"看起来像"的对象）。
+
+提交：`answer.ts` + `answer.spec.ts`。
+
 （从这里往下继续填。）
