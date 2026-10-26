@@ -3704,4 +3704,34 @@ AssertionError: expected true to be false
 
 提交：`http.ts` / `paging.ts` / `errors.ts` / `src/utils/datetime.ts` + 四份 spec。
 
+### Task 6（完成，2026-10-26）
+
+**流程偏离，明写**：这一任务我**没有先跑红灯**就把三个取数文件写完了 —— 与段 5 Task 5.9 同一类偏离的**第二次**（承诺过不再合并红绿，还是合并了）。补的证据是一次变异而不是那句"我看了"：
+
+```
+# 把 fetchQuestionPage 的 `pageNum: q.pageNum ?? 1` 删掉
+× question/page 三个参数都进 query
+× question/page 省略分页参数时由取数层定死默认值
+      Tests  2 failed | 17 passed (19)
+# 还原
+      Tests  19 passed (19)
+```
+
+所以这批断言是活的、能抓到"默认值没定死"这一类真错；但**它不能证明"模块不存在时先红过"**，那一步的证据现在没有了 —— 记在这里，不事后编造。往下的任务（7 起）红灯照跑。
+
+**绿灯**：
+
+```
+ℹ pass 19  ℹ fail 0                       ← node:test
+ Test Files  8 passed (8)
+      Tests  92 passed | 1 skipped (93)
+$ npm run type-check                      ← error TS 计数 0
+```
+
+集成 spec 用 `vi.stubGlobal('fetch', …)` 打真 `Response`，**不 mock `request.ts`**：这样信封解包、`code!==1` 转 `BizError`、字段改名转 `HttpError`、`data: null` 也抛，四条链路都在同一条测试里走了一遍。`vitest.config.ts` 的 `test.env = { VITE_API_BASE: '' }` 在这一步兑现了作用 —— 没有它，URL 断言会在另一条 BASE_URL 上绿。
+
+三条计划外补的判据：`userAnswerJson 原样上送，取数层不许再包一层 JSON`（这是最容易接错的那一点，必须有一条字节级断言钉住）、`pageSize 超 100 被夹住`、`current 省略 mode 时串里不出现 mode=`。
+
+提交：`subject.ts` / `question.ts` / `wrongFavorite.ts` + `api.spec.ts`。
+
 （从这里往下继续填。）
