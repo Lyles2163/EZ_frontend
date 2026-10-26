@@ -67,12 +67,12 @@ export const FAVORITE_PAGE_OK = {
   list: [{ questionId: 1, index: 1, type: 1, titleBrief: '下列选项中，正确的是？', createdAt: 1792811457000 }],
 }
 
-/** question/page 的 list 元素刻意没有 title */
+/** question/page 的 list 元素刻意没有 title；qid 7 与 current 样本同号，好让卡片与本题能对上 */
 export const QUESTION_PAGE_OK = {
   pageNum: 1, pageSize: 100, total: 2, pages: 1,
   list: [
     { index: 1, questionId: 1, type: 1, difficulty: 1, tags: [], answerStatus: 0, favorited: false },
-    { index: 2, questionId: 6, type: 5, difficulty: 2, tags: ['简答'], answerStatus: 3, favorited: true },
+    { index: 2, questionId: 7, type: 1, difficulty: 1, tags: ['私有'], answerStatus: 3, favorited: false },
   ],
 }
 

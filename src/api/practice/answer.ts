@@ -90,6 +90,17 @@ export function decodeUserAnswer(type: number, json: string | null): AnswerValue
   }
 }
 
+/**
+ * 进入一题时的默认作答值。
+ * 填空给的是"槽数"，QuestionBody 与 submit 都从这一个来源取，
+ * 两处各数一遍迟早数出不同的结果（后端逐位比对，长度错了就是答案错了）。
+ */
+export function initialModel(type: number, title: string): AnswerValue {
+  if (type === TYPE_MULTI) return []
+  if (type === TYPE_BLANK) return blankSlots(title) ?? ['']
+  return null
+}
+
 export type CardState = 'idle' | 'correct' | 'wrong' | 'pending'
 
 export function cardState(status: number | null): CardState {

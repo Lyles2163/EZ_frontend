@@ -36,7 +36,12 @@ const router = createRouter({
           name: 'practice-subject',
           component: () => import('../views/Practice/Subject.vue'),
         },
-        // practice-drill / practice-wrong / practice-favorite 分别在 Task 10 / 13 / 14 接上：
+        {
+          path: 'drill',
+          name: 'practice-drill',
+          component: () => import('../views/Practice/Drill.vue'),
+        },
+        // practice-wrong / practice-favorite 分别在 Task 13 / 14 接上：
         // 现在写了会让 vue-tsc 去 import 还不存在的文件，type-check 必红
       ],
     },

@@ -5,8 +5,30 @@ import * as F from './fixtures'
 import { parseAnswerSubmit } from '../types'
 import {
   BLANK_MODE, blankSlots, canSelfJudge, cardState, cardStateAfterSubmit, clampDuration,
-  decodeUserAnswer, encodeUserAnswer, TYPE_BLANK, TYPE_ESSAY, TYPE_JUDGE, TYPE_MULTI, TYPE_SINGLE,
+  decodeUserAnswer, encodeUserAnswer, initialModel, TYPE_BLANK, TYPE_ESSAY, TYPE_JUDGE,
+  TYPE_MULTI, TYPE_SINGLE,
 } from '../answer'
+
+describe('initialModel：进入一题时的作答初值', () => {
+  it('填空：与 blankSlots 同形态，两处数的槽数必须一致', () => {
+    const title = '根据内容填空：___ 与 ___ 。'
+    expect(initialModel(TYPE_BLANK, title)).toEqual(blankSlots(title) ?? [''])
+  })
+
+  it('填空（数不出占位符）：一个空串的数组，QuestionBody 据此走单框分支', () => {
+    expect(initialModel(TYPE_BLANK, '没有任何占位符的题干')).toEqual([''])
+  })
+
+  it('多选回空数组而不是 null：checkbox 的 includes 判断需要数组', () => {
+    expect(initialModel(TYPE_MULTI, '题干')).toEqual([])
+  })
+
+  it('其余题型都是 null（未选择）', () => {
+    expect(initialModel(TYPE_SINGLE, '题干')).toBeNull()
+    expect(initialModel(TYPE_JUDGE, '题干')).toBeNull()
+    expect(initialModel(TYPE_ESSAY, '题干')).toBeNull()
+  })
+})
 
 describe('encodeUserAnswer：输出是整份 JSON 的文本', () => {
   it('单选 → "A"（含引号）', () => {

@@ -3787,4 +3787,42 @@ $ npm run build-only      ← ✓ built in 2.04s
 
 `git rm src/views/Practice/Index.vue` 已执行（占位页删除）。
 
+### Task 10（代码完成；浏览器五条待实跑。与 Task 11 的代码合并写了，2026-10-26）
+
+**先红**（`initialModel`）：`TypeError: initialModel is not a function` → 4 条失败，实现后全过。红灯在这一步是真的跑在前面。
+
+**计划外多做的一件**：给 `useDrill` 写了 `src/composables/__tests__/useDrill.spec.ts`（打桩 `fetch`，纯 node，无 DOM）。理由是我在写自查判据时发现**裁定七、三个 guard、statDelta 覆盖**这三件最高风险的事全在流程层，而计划把它们留给浏览器实跑 —— 它们其实不需要 DOM。结果这一层立刻抓到一条真 bug：
+
+> `submit()` 里 `busy` 的 `finally` 带 `isCurrent` 判定，所以"提交在途时切题"会让 `busy` **永远停在 true**，按钮卡在"提交中…"。修法是在 `open()` 开头显式 `busy.value = false`（换题就是一次新的开始）。
+
+**两次变异取证（证明这批测试是活的）**：
+
+```
+# 删掉 open() 里的 busy.value = false
+× 提交期间切了题…按钮也不许卡在"提交中…"      Tests 1 failed | 7 passed (8)
+# 把 loadCard 的 cardGuard 换成 flowGuard（也就是计划自查抓到的第 1 条缺陷的原始写法）
+× 答题卡与当前题各自落地（一个 guard 会让答题卡永远空）   Tests 1 failed | 7 passed (8)
+# 还原                                                     Tests 8 passed (8)
+```
+
+第二条变异正是"写计划时认定的错"如今被一条测试钉住 —— 若照原计划只靠浏览器验收，它会以"答题卡永远空"的形式在 Task 15 才暴露。
+
+**绿灯**：
+
+```
+ℹ fail 0
+ Test Files  10 passed (10)
+      Tests  109 passed | 1 skipped (110)
+$ npm run type-check   ← error TS 0
+$ npm run build-only   ← ✓ built in 808ms
+```
+
+**夹具的一处改动**：`QUESTION_PAGE_OK` 原本用 qid 1/6，与 `QUESTION_CURRENT_OK` 的 qid 7 对不上，导致"提交后那一格变色"没法在同一份夹具里测。改成 qid 1 + **qid 7（answerStatus 3）**，`types.spec` 里 `list[1].answerStatus === 3` 的断言不受影响。
+
+**与 Task 11 的边界调整（明写）**：`judge()` 与两个自评按钮在写 `useDrill`/`Drill.vue` 时就一并实现了（分开写会留下"按钮绑着不存在的方法"的死代码）。**Task 11 因此不再有新代码，只剩它自己的浏览器判据**（含"响应里有答案、屏幕上没有"那条 F12 对比与两标签页触发 40900）。
+
+**`Drill.vue` 里刻意没有答题卡**：那是 Task 12 的交付物，提前写就是引用不存在的组件。
+
+提交：`answer.ts`(+initialModel)、`answer.spec.ts`、`useDrill.ts`、`useDrill.spec.ts`、`Drill.vue`、`router/index.ts`、`fixtures.ts`。
+
 （从这里往下继续填。）
