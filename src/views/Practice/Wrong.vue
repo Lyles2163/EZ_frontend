@@ -21,13 +21,23 @@ const FILTERS: { value: WrongFilter; label: string }[] = [
 /** 只有 total=0 才是"这个筛选下真的没有"：越界页的 list 也是空的，但那一页还有题 */
 const isEmpty = computed(() => !wrong.loading.value && wrong.page.value.total === 0)
 
-onMounted(async () => {
-  await ensure()
-  if (currentSubject.value) await wrong.reload()
-})
+onMounted(() => { void ensure() })
 
-// 侧栏换科时组件不重挂，不监听就会停在上一科的错题上（和 Drill.vue 同一个坑）
-watch(() => currentSubject.value?.id, () => void wrong.reload())
+/**
+ * 首屏与换科共用一个 watch（`immediate` 覆盖"科目已在缓存里"那种首屏），
+ * loadedFor 挡住重复触发 —— 少了它，ensure() 填 currentSubject 时 watch 会再发一次
+ * 同样的 wrong/page（favorite/page 上实测到过这个双发）。
+ */
+let loadedFor: number | null = null
+
+async function load(): Promise<void> {
+  loadedFor = currentSubject.value?.id ?? null
+  await wrong.reload()
+}
+
+watch(() => currentSubject.value?.id, id => {
+  if (id !== null && id !== loadedFor) void load()
+}, { immediate: true })
 
 function redo(questionId: number): void {
   void router.push({ name: 'practice-drill', query: { questionId: String(questionId) } })

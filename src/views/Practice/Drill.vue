@@ -60,19 +60,30 @@ function dismissError(): void {
   drill.error.value = null
 }
 
-onMounted(async () => {
-  await ensure()
-  if (!currentSubject.value) return
-  void drill.loadCard()
-  openCurrent()
-})
+/**
+ * 首屏、换科、深链接三件事共用一个 watch：
+ * - `immediate` 覆盖"科目已经在 useSubjects 缓存里"（从别的练习页切回来）那种首屏；
+ * - `loadedFor` 挡住重复触发 —— 少了它，ensure() 填 currentSubject 时会与 onMounted 各发
+ *   一次 card/current，而且那次还会用 navigateTo(mode) 把 URL 上的 questionId 擦掉，
+ *   "从错题本跳进某一题"当场失效（收藏本判据③）；
+ * - 只有真的换了科目（first=false）才清掉上一科遗留的 questionId。
+ */
+let loadedFor: number | null = null
 
-// 点侧栏科目时人已经停在 /practice/drill：路由不变、组件不重挂，
-// 所以换科目必须看 currentSubject 的 id，否则答题卡与题目都停在上一科
-watch(() => currentSubject.value?.id, () => {
+function loadForSubject(first: boolean): void {
   void drill.loadCard()
-  navigateTo({ kind: 'mode', mode: drill.mode.value })
-})
+  if (first) openCurrent()
+  else navigateTo({ kind: 'mode', mode: drill.mode.value })
+}
+
+onMounted(() => { void ensure() })
+
+watch(() => currentSubject.value?.id, id => {
+  if (typeof id !== 'number' || id === loadedFor) return
+  const first = loadedFor === null
+  loadedFor = id
+  loadForSubject(first)
+}, { immediate: true })
 
 // 从错题本/答题卡进来是同一个页面，只是 query 变了
 watch(() => route.query.questionId, openCurrent)

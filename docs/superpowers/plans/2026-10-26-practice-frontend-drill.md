@@ -3875,4 +3875,36 @@ AssertionError: expected true to be false   at paging.spec.ts:69
 
 浏览器五条判据（`titleBrief` 是截断标题、重做跳 `?questionId=` 并回填、标已掌握当场摘行且 `total` 减 1、切「已掌握」能看到它、单页时两个按钮都 disabled）**全部未实跑**：`EZ_PW` 长度 0，我不会把口令写进任何命令、文件或日志，所以整批挪到 Task 15。dev server 在 5173 应答 200、8100/8102 都在听（`netstat` PID 3924/8544），登录态一到就能跑。
 
+> **2026-10-26 补（Task 14 期间）**：这五条仍然没跑，但浏览器里发现这个会话**本来就带着登录态**（`localStorage` 的 `ez-auth`，我只记长度不记内容），所以 Task 14 的四条已经实跑了，其中「重做跳 `?questionId=` 并回填」由 Task 14 的判据③顺带验到（见下一节的 A 选项回填证据）。**剩下的三条**（`titleBrief` 截断口径、标已掌握当场摘行、切「已掌握」筛选能看到它）连同 Task 8/10/11/12 的判据一起进 Task 15。
+
+### Task 14（代码 + 浏览器四条全部实跑，2026-10-26）
+
+`useFavorite.ts` + `useFavorite.spec.ts`（10 条）+ `Favorite.vue` + `practice-favorite` 子路由。计划这一步没有测试步骤（只有三门命令），我按 `useWrong` 的同构补了 spec —— 收藏本的本地摘行、`favorited` 只信响应、翻页边界、迟到响应这四件事全都和错题本一样，没有测试就等于没有。
+
+**两次变异，各打红一条**（先把实现改坏、确认红的是我想要的那条，再恢复）：
+
+| 变异 | 结果 |
+|---|---|
+| `shrinkPage(page.value)` → `{ ...page, total: total-1 }`（只减 total、pages/hasNext 留着） | `× 就地摘行，total 减 1 且 pages 与 hasNext 一起收敛`，其余 9 条绿 |
+| `if (!stillFavorited)` → `if (stillFavorited || !stillFavorited)` | `× 后端回 favorited=true 时什么都不改`，其余 9 条绿 |
+
+恢复实现后 `grep` 复核过第 59/61 行就是原样，才跑三门。
+
+**浏览器实跑时抓到一个我自己 Task 13 引进去的缺陷（首屏重复请求）**：`Favorite.vue` 打开时网络面板出现**两条一模一样的** `GET /gw/practice/favorite/page?subjectId=1&pageNum=1&pageSize=20`。原因是 `onMounted` 里 `await ensure()` 之后主动 `reload()`，而 `ensure()` 把 `currentSubject` 从 `null` 填成第一科这件事**本身就触发了换科 watch** —— 两条路径各发一次。同一个形状在三处都有，`Drill.vue` 那处更严重：换科分支调的是 `navigateTo({kind:'mode'})`，它会把 URL 上的 `?questionId=` 擦掉，于是**从错题本/收藏本跳进某一题的深链接当场失效**（刷新同理）。
+
+改法（三个视图一致）：首屏与换科共用一个 `immediate` watch，用 `loadedFor` 挡住重复触发；`Drill.vue` 再区分 `first` —— 首屏保留 URL 上的 `questionId`（`openCurrent()`），真的换科才清掉它（`navigateTo(mode)`）。watch 留在 setup 作用域里，不用手动 `stop`（异步回调里建的 watch 会丢作用域，这是我一开始写的另一版为什么被换掉）。
+
+`type-check` 抓到了这版里的一个真类型错：watch 回调参数是 `number | undefined`，直接赋给 `loadedFor: number | null` 报 `TS2322`（`Drill.vue:84`）—— `vite build` 不报，只有 `vue-tsc` 报，所以三门一个都不能省。判据改成 `typeof id !== 'number'` 先窄化。
+
+**四条判据全部实跑通过**（`evaluate_script` 驱动，`click` 工具仍然报 `NATIVE_BROWSER_VIEWPORT_UNAVAILABLE`）：
+
+1. **收藏 → 收藏本出现它**：`/practice/drill?questionId=1` 点「收藏本题」→ `POST /gw/practice/favorite/toggle`，按钮文案立刻变「取消收藏」；进收藏本看到一行 `第 1 题 | 题型 1 | 下列选项中，正确的是？ | 收藏于 2026-10-26 11:39`。`titleBrief` 是后端那句截断标题（没有拼完整题干），`formatDateTime` 出来的格式是 `YYYY/M/D HH:mm`。
+2. **取消收藏 → 就地消失**：`rowsBefore=1 → rowsAfter=0`，且 toggle 之后**没有**新的 `favorite/page` 请求（网络面板实测：两条 page 都是进页面时发的，之后只有一条 `toggle`）—— 这条就是"不整页重拉"的证据。
+3. **重做流不依赖先访问过练习页**：从收藏本点「重做」→ URL `http://localhost:5173/practice/drill?questionId=1`，只发 `current?questionId=1`，题干与四个选项都渲染、可以作答。**顺带验到 Task 12 的回填判据**：`[data-on]` 扫下来 `A. 选项A的内容` 是 `on="true"`（上次作答是 `"A"`），也就是 `lastUserAnswerJson` 经 `decodeUserAnswer` 真回填上了；答题卡那一格是 `cell cell--correct cell--now`（四态 + 当前格高亮同时成立）。
+4. **全部取消后是空态而不是"加载失败"**：`.p-empty__title` = 「还没有收藏的题目」，`hasErrorBar=false`，分页两个按钮都 `disabled`（`pages=1`）。
+
+换科复核：点侧栏「数学」→ URL 上的 `questionId` 被清掉、只发一条 `current?subjectId=2&mode=1`、`localStorage practice:subjectId` 变 2；再点回「语文」把状态还原成我进来时的样子（收藏也取消干净了，库里没留我的痕迹）。顺手拿到的真实数字：语文 `共 4 题 · 已答 15 · 正确率 60%`、数学 `共 3 题 · 已答 3 · 正确率 67%`、`mode=1` 两科都 `finished=true`（「这一科已经全部作答」的空态就是这么来的）。
+
+绿灯：node:test **19 pass**、vitest `Test Files 12 / Tests 130 passed | 1 skipped`、`type-check` 无 error、`build-only ✓ 795ms` 且有 `Favorite-Bhe1guy_.js` chunk。
+
 （从这里往下继续填。）

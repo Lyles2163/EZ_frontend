@@ -46,8 +46,11 @@ const router = createRouter({
           name: 'practice-wrong',
           component: () => import('../views/Practice/Wrong.vue'),
         },
-        // practice-favorite 在 Task 14 接上：
-        // 现在写了会让 vue-tsc 去 import 还不存在的文件，type-check 必红
+        {
+          path: 'favorite',
+          name: 'practice-favorite',
+          component: () => import('../views/Practice/Favorite.vue'),
+        },
       ],
     },
     {
