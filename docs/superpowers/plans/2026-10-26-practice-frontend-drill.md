@@ -3842,4 +3842,37 @@ $ npm run build-only   ← ✓ built in 808ms
 
 绿灯：`Test Files 10 / Tests 109 passed | 1 skipped`、`type-check` 无 error、`build-only ✓ 813ms`。
 
+### Task 13（代码完成；浏览器五条待实跑，2026-10-26）
+
+`useWrong.ts` + `useWrong.spec.ts`（8 条）+ `Wrong.vue` + `practice-wrong` 子路由。
+
+**我的测试抓到的一个真缺陷（不是改判据改出来的）**：`useWrong.spec.ts` 的「就地摘行，total 减 1 且 pages 一起重算」红了一次 ——
+
+```
+× 就地摘行，total 减 1 且 pages 一起重算
+AssertionError: expected true to be false        Tests 1 failed | 7 passed (8)
+```
+
+原因是计划里的局部 `shrinkTotal` 只重算 `total`/`pages`，`{ ...view }` 把旧的 `hasNext` 原样留下了：`total` 21→20、`pages` 2→1，人在第 1 页却还挂着一条**能点但必空**的「下一页」。这条不是错题本专属，收藏本「取消收藏」走的是同一个动作，所以把它从 composable 里提出来变成 `paging.shrinkPage`（`src/api/practice/paging.ts:38`），两个方向一起重算，`useWrong.ts:6` 改 import、`:68` 改调用。
+
+**给 `shrinkPage` 补的三条 `paging.spec.ts` 测试，第一版本身是假灯** —— 我写的用例是 `view(2, 21, [1])`，而 `pageNum=2 / pages=2` 的 `normalizePage` 本来就算出 `hasNext=false`，于是把实现改回坏的（`hasPrev: view.hasPrev, hasNext: view.hasNext`）照样 10 passed。换成 `view(1, 21, [1, 2])`（先断言 `before.hasNext === true`）再做同一次变异才红：
+
+```
+FAIL > shrinkPage：就地摘一行后四个量一起收敛 > 第 1 页摘到只剩 1 页：旧的 hasNext=true 必须被重算成 false
+AssertionError: expected true to be false   at paging.spec.ts:69
+```
+
+恢复实现后 `paging.spec.ts` 10 passed、`useWrong.spec.ts` 8 passed。**教训记下来**：验"某个字段会被重算"的测试，必须先断言它在变异前就不是目标值，否则测试只是在读自己的 `...view`。
+
+与计划的四处偏离（都是往严里改，逐条说明）：
+
+1. `shrinkTotal`（计划里的局部函数）→ `paging.shrinkPage`，理由见上。
+2. 计划的 `Produces` 写 `{ …, next, prev, … }`，但计划 Step 2 的模板代码自己调的是 `wrong.go(-1)`/`wrong.go(1)` —— 不一致的是那一行 `Interfaces`，实现按 `go(delta)` 走。翻页边界（`next > pages` 根本不发请求）由 `useWrong.spec.ts` 的「翻页只按 pages」覆盖，这条是事实清单 12 的判据。
+3. 空态判据去掉计划里的 `rows.length === 0`，只留 `total === 0`：`total=0` 时 list 必空，多一个条件是冗余；而 `list` 空但 `total>0`（越界页）**不能**显示空态，这正是事实清单 12 说的"别把空 list 当没有题"。提为 `computed isEmpty`。
+4. 计划 Step 2 没有换科目的 `watch`。这是 Task 12 在 `Drill.vue` 上踩过同一个坑之后必须补的：侧栏点科目时人停在 `/practice/wrong`，组件不重挂，不监听 `currentSubject.value?.id` 就会停在上一科的错题。已经加上（`Wrong.vue:30`）。
+
+绿灯：`npm test` → node:test **19 pass**、vitest `Test Files 11 / Tests 120 passed | 1 skipped`；`type-check` 无 error；`build-only ✓ 796ms`，且 `dist/assets/Wrong-5BRYAVL4.js` 真的产出了 chunk —— 这条才是"懒加载路由接上了"的证据，光看 build 绿不算（Task 8 那次我提前写 import 会让 type-check 红，反过来现在少了 import 才是静默的）。
+
+浏览器五条判据（`titleBrief` 是截断标题、重做跳 `?questionId=` 并回填、标已掌握当场摘行且 `total` 减 1、切「已掌握」能看到它、单页时两个按钮都 disabled）**全部未实跑**：`EZ_PW` 长度 0，我不会把口令写进任何命令、文件或日志，所以整批挪到 Task 15。dev server 在 5173 应答 200、8100/8102 都在听（`netstat` PID 3924/8544），登录态一到就能跑。
+
 （从这里往下继续填。）

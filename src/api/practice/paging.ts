@@ -29,3 +29,20 @@ export function normalizePage<T>(vo: PageVO<T>): PageView<T> {
     hasNext: vo.pages > 0 && vo.pageNum < vo.pages,
   }
 }
+
+/**
+ * 就地摘掉一行后重新收敛分页（错题本"已掌握"、收藏本"取消收藏"都走这里）。
+ * 两个方向都要算：只改 total/pages 而留着旧的 hasNext，最后一页就会留下一个
+ * "能点但必空"的下一页 —— 这条是被自己的测试抓出来的，不是预防性的。
+ */
+export function shrinkPage<T>(view: PageView<T>): PageView<T> {
+  const total = Math.max(0, view.total - 1)
+  const pages = Math.ceil(total / view.pageSize)
+  return {
+    ...view,
+    total,
+    pages,
+    hasPrev: view.pageNum > 1,
+    hasNext: pages > 0 && view.pageNum < pages,
+  }
+}
