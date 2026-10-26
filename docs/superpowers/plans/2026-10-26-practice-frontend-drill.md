@@ -3590,4 +3590,51 @@ git commit -m "练习侧前端端到端：11 条浏览器判据逐条实测 + sp
 
 **填写规则**：贴真实输出（可截断）。中文从落盘文件读，别指望 GBK 控制台。红灯必须贴出真实报错，证明确实先红后绿。
 
-（执行者从这里开始写。）
+### Task 1（完成，2026-10-26）
+
+**先红**（`npx --no-install` 是为了拿到"没装"的真实证据而不是顺手装一遍）：
+
+```
+$ npx --no-install vitest run
+npm error npx canceled due to missing packages and no YES option: ["vitest@5.0.5"]
+```
+
+装 `vitest@^5.0.5` 后 `package.json` 只 +1 行、`package-lock.json` +261 行，没有别的包被动。
+
+**绿灯**：
+
+```
+$ npm test
+ℹ tests 19  ℹ pass 19  ℹ fail 0          ← node --test 那 3 个既有文件（没改一行）
+ Test Files  1 passed (1)
+      Tests  2 passed (2)                 ← vitest 的 smoke.spec.ts
+$ npm run type-check                      ← vue-tsc --build && vue-tsc --noEmit -p tsconfig.vitest.json
+EXIT=0
+```
+
+**实测抓到的一条计划缺陷（第 11 处，且是"绿灯会撒谎"那类）**：`tsconfig.vitest.json` 里 `"exclude": []` 不是可选项。按原计划只写 `include` 时，`extends` 继承来的 `exclude: ["src/**/__tests__/*"]` 会把 include 命中的测试文件**全部滤空** —— 我往 `smoke.spec.ts` 里塞 `const _bogus: number = "not a number"`，`npm run type-check` 照样报绿。加 `"exclude": []` 之后同一条变异当场红：
+
+```
+src/api/practice/__tests__/smoke.spec.ts(16,7): error TS2322: Type 'string' is not assignable to type 'number'.
+```
+
+删掉变异回绿。**所以"测试也进类型检查门"这条验收项，证据是那次变异，不是 EXIT=0。**
+
+提交：`de2b529`（5 个文件：`package.json`、`package-lock.json`、`vitest.config.ts`、`tsconfig.vitest.json`、`smoke.spec.ts`）。`ShinyText.vue`(AM) 与 `Home.vue`(M) 一行未动。
+
+`vitest.config.ts` 比计划多了一行 `test.env = { VITE_API_BASE: '' }`：`request.ts` 在模块加载时读 `import.meta.env.VITE_API_BASE`，测试里必须把它钉成空串才会走 `/gw`，否则 Task 6 的 URL 断言在另一条链路上绿。
+
+### Task 2（完成，2026-10-26）
+
+只读探针（`QuestionInventory.java`，仓库外 `…/tmp/F--AAAJAVA-code-EZ_frontend/probe/`，输出 `inventory.txt` UTF-8）：
+
+```
+== type 分布（status=1）== type=1 n=3 / type=2 n=1 / type=3 n=1 / type=4 n=1 / type=5 n=1，启用题总数 7
+qid=4 subject=2 title=植物通过____作用将光能转化为化学能。 answer=["光合作用"]
+```
+
+判据核对：占位符 1 个、`answer_json` 槽 1 个 → 1/1 题命中（≥ 一半）→ **`blankMode='counted'`**。`freeform` 分支照计划留着并各有测试——库里只有 1 道填空题，样本量不足以把它当普适结论。
+
+顺手钉了 Task 15 要点的真实 id：语文（科目 1）= `type1:1/6`、`type2:2`、`type5:5`；数学（科目 2）= `type1:7`、`type3:3`、`type4:4`。**五种题型都能点到，但判断/填空只在科目 2、多选/简答只在科目 1**，实跑必须来回切两科。
+
+（从这里往下继续填。）
