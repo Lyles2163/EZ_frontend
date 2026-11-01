@@ -11,7 +11,7 @@ const chat = useChat()
 
 // useChat 返回的是「装着 ref 的普通对象」：模板里只有顶层 ref 会自动解构，
 // chat.messages 是嵌套属性，所以一次性解构出来用，避免 .value 与不解构混写。
-const { catalog, catalogError, messages, sending, errorText } = chat
+const { catalog, catalogError, messages, sending, errorText, useRag } = chat
 
 const scroller = ref<HTMLElement | null>(null)
 
@@ -85,6 +85,10 @@ onMounted(() => {
       <p v-if="errorText || catalogError" class="chat-error">{{ errorText || catalogError }}</p>
 
       <div class="prompt-wrap">
+        <label class="rag-toggle">
+          <input type="checkbox" v-model="useRag" />
+          <span>知识库增强（RAG）</span>
+        </label>
         <PromptBar
             placeholder="问点什么"
             :busy="sending"
@@ -173,6 +177,20 @@ onMounted(() => {
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
+}
+.rag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 8px;
+  width: fit-content;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.rag-toggle input {
+  accent-color: var(--sb-active, #6ea8ff);
 }
 @media (max-width: 767px) {
   .chat-main { padding: 0 14px 14px; }

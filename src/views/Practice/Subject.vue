@@ -37,13 +37,18 @@ function dismissError(): void {
       </button>
     </header>
 
+    <!--
+      错误条不顶掉内容：刷新失败时人已经看到的科目卡还在 subjects 里（侧栏也还在列着它们），
+      主区却整片消失就成了"侧栏有科目、页面只剩报错"的自相矛盾。空态只在真的没数据、
+      且不是因为报错时才出现。
+    -->
     <ErrorBar v-if="error" :message="error" @dismiss="dismissError" />
 
-    <EmptyState v-else-if="!loading && subjects.length === 0"
+    <EmptyState v-if="!error && !loading && subjects.length === 0"
                 title="还没有可练习的科目"
                 hint="题库里没有启用中的题目，或科目都被停用了。" />
 
-    <div v-else class="grid">
+    <div v-if="subjects.length" class="grid">
       <button
           v-for="s in subjects"
           :key="s.id"

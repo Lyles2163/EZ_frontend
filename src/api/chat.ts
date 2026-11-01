@@ -69,6 +69,11 @@ export interface StreamPayload {
   effort?: string
   clientMsgId?: string
   regenerate?: boolean
+  /* ===== RAG 相关字段 ===== */
+  useRag?: boolean
+  ragScope?: string[]
+  ragSubjectId?: number
+  ragTopK?: number
 }
 
 export const fetchModelCatalog = (): Promise<ModelCatalog> =>

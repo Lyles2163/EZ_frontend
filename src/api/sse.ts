@@ -33,6 +33,21 @@ export interface ErrorPayload {
   retryable: boolean
 }
 
+export interface RagCitation {
+  index: number
+  docId: number
+  chunkId: number
+  title: string | null
+  book: string | null
+  chapterPath: string | null
+  pageNo: number | null
+  cosine: number | null
+}
+
+export interface SourcesPayload {
+  citations: RagCitation[]
+}
+
 export interface ChatStreamHandlers {
   onMeta?(meta: MetaPayload): void
   onThoughtStep?(text: string): void
@@ -41,6 +56,7 @@ export interface ChatStreamHandlers {
   onUsage?(usage: UsagePayload): void
   onDone?(finishReason: string): void
   onError?(error: ErrorPayload): void
+  onSources?(sources: SourcesPayload): void
 }
 
 /** 只声明用到的部分，测试里能手搓一个假 Response。 */
@@ -57,6 +73,19 @@ function asString(value: unknown): string {
 
 function asNumberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function asCitation(obj: Record<string, unknown>): RagCitation {
+  return {
+    index: typeof obj.index === 'number' ? obj.index : 0,
+    docId: typeof obj.docId === 'number' ? obj.docId : 0,
+    chunkId: typeof obj.chunkId === 'number' ? obj.chunkId : 0,
+    title: typeof obj.title === 'string' ? obj.title : null,
+    book: typeof obj.book === 'string' ? obj.book : null,
+    chapterPath: typeof obj.chapterPath === 'string' ? obj.chapterPath : null,
+    pageNo: typeof obj.pageNo === 'number' ? obj.pageNo : null,
+    cosine: typeof obj.cosine === 'number' ? obj.cosine : null
+  }
 }
 
 export function parseBlock(block: string): SseFrame | null {
@@ -134,6 +163,13 @@ export function dispatchFrame(frame: SseFrame, handlers: ChatStreamHandlers): vo
         errorCode: asString(payload.errorCode),
         msg: asString(payload.msg),
         retryable: payload.retryable === true
+      })
+      return
+    case 'sources':
+      handlers.onSources?.({
+        citations: Array.isArray(payload.citations)
+          ? payload.citations.map((c: unknown) => asCitation(c as Record<string, unknown>))
+          : []
       })
       return
     default:

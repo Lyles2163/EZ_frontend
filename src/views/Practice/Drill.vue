@@ -1,6 +1,6 @@
 <!-- src/views/Practice/Drill.vue -->
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AnswerCard from '../../components/practice/AnswerCard.vue'
 import EmptyState from '../../components/practice/EmptyState.vue'
@@ -55,6 +55,9 @@ function nextQuestion(): void {
 function percent(accuracy: number): string {
   return `${Math.round(accuracy * 10000) / 100}%`
 }
+
+/** 裁定七的守门人就是它：showAnswer false 时这一段整块不渲染（参考答案先藏着） */
+const revealedResult = computed(() => (drill.showAnswer.value ? drill.result.value : null))
 
 function dismissError(): void {
   drill.error.value = null
@@ -134,26 +137,31 @@ watch(() => route.query.questionId, openCurrent)
 
       <p v-if="drill.judgedTip.value" class="tip">{{ drill.judgedTip.value }}</p>
 
-      <!-- 解析面板：showAnswer 为 false 时参考答案先藏着（裁定七） -->
-      <div v-if="drill.result.value" class="panel glass-lite">
+      <!--
+        面板的条件是 result || canJudge：只有 result 时，"刷新后重进一道待自评的题"
+        这条流就没有任何自评入口（pendingRecordId 明明在，按钮却渲染不出来），
+        用户只能重新答一遍。裁定七照旧由 showAnswer 守 —— 它在没有 result 时返回 false，
+        所以这一版不会把参考答案提前漏出来。
+      -->
+      <div v-if="drill.result.value || drill.canJudge.value" class="panel glass-lite">
         <p class="verdict">
-          <template v-if="drill.result.value.needSelfJudge && !drill.revealed.value">
-            这道题不自动判分，请自评。
-          </template>
-          <template v-else-if="drill.result.value.isCorrect">答对了</template>
+          <template v-if="drill.canJudge.value">这道题不自动判分，请自评。</template>
+          <template v-else-if="drill.result.value?.isCorrect">答对了</template>
           <template v-else>答错了</template>
         </p>
 
-        <template v-if="drill.showAnswer.value">
-          <p class="row"><b>正确答案</b><code>{{ drill.result.value.correctAnswerJson }}</code></p>
-          <p v-if="drill.result.value.analysis" class="row"><b>解析</b>{{ drill.result.value.analysis }}</p>
+        <!-- showAnswer 为 true 时必然有 result（它在 result 为 null 时返回 false），
+             但模板推不出这层关系，所以在这里窄化一次给 vue-tsc 看 -->
+        <template v-if="revealedResult">
+          <p class="row"><b>正确答案</b><code>{{ revealedResult.correctAnswerJson }}</code></p>
+          <p v-if="revealedResult.analysis" class="row"><b>解析</b>{{ revealedResult.analysis }}</p>
           <p v-if="drill.stat.value" class="row">
             <b>科目统计</b>共 {{ drill.stat.value.total }} 题 · 对 {{ drill.stat.value.correct }} ·
             错 {{ drill.stat.value.wrong }} · 正确率 {{ percent(drill.stat.value.accuracy) }}
           </p>
           <p class="row">
-            <b>本题</b>累计答错 {{ drill.result.value.wrongCount }} 次
-            <span v-if="drill.result.value.wrongMastered">· 已掌握</span>
+            <b>本题</b>累计答错 {{ revealedResult.wrongCount }} 次
+            <span v-if="revealedResult.wrongMastered">· 已掌握</span>
             <span v-else>· 未掌握</span>
           </p>
         </template>

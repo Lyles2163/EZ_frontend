@@ -50,6 +50,21 @@ const showActions = computed(() => props.turn.failed && !props.turn.fromHistory)
       <p v-else-if="stoppedWhileThinking" class="turn-note">已停止（模型还在思考）</p>
       <p v-else-if="turn.status === 'truncated'" class="turn-note">回答在此中断</p>
 
+      <div v-if="turn.citations.length" class="turn-citations">
+        <p class="cite-title">参考资料</p>
+        <ul class="cite-list">
+          <li v-for="c in turn.citations" :key="c.index" class="cite-item">
+            <span class="cite-idx">[{{ c.index }}]</span>
+            <span class="cite-text">
+              《{{ c.book || '未命名文档' }}》
+              <template v-if="c.chapterPath"> · {{ c.chapterPath }}</template>
+              <template v-if="c.title"> · {{ c.title }}</template>
+              <template v-if="c.pageNo != null">（第 {{ c.pageNo }} 页）</template>
+            </span>
+          </li>
+        </ul>
+      </div>
+
       <div v-if="showActions" class="turn-actions">
         <button class="turn-retry" @click="emit('retry')">重试</button>
         <button class="turn-regen" @click="emit('regenerate')">重新生成</button>
@@ -84,6 +99,37 @@ const showActions = computed(() => props.turn.failed && !props.turn.fromHistory)
   color: var(--text-muted);
 }
 .turn-actions { display: flex; gap: 8px; }
+.turn-citations {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--sb-bg);
+}
+.cite-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cite-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cite-item {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.cite-idx {
+  color: var(--text);
+  font-weight: 600;
+  margin-right: 4px;
+}
 .turn-retry,
 .turn-regen {
   height: 30px;

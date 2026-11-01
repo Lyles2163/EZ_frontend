@@ -24,7 +24,7 @@ import {
   type ModelCatalog,
   type StreamPayload
 } from '../api/chat'
-import type { ErrorPayload, MetaPayload, UsagePayload } from '../api/sse'
+import type { ErrorPayload, MetaPayload, RagCitation, UsagePayload } from '../api/sse'
 
 export type ChatTurnStatus = 'streaming' | 'done' | 'failed' | 'truncated' | 'superseded'
 
@@ -47,6 +47,8 @@ export interface ChatTurn {
   /** reasoning 不落库 → 历史行没有思考线，只有本次会话内真跑过的流才有 */
   fromHistory: boolean
   clientMsgId?: string
+  /** RAG 检索到的引用资料，正文开始前由 sources 帧注入 */
+  citations: RagCitation[]
 }
 
 /** 后端 ChatStreamService 实际会往 done 帧里塞这几个串（AiMessage.STOP_*） */
@@ -63,6 +65,8 @@ function createChat() {
   const messages = ref<ChatTurn[]>([])
   const sending = ref(false)
   const errorText = ref('')
+  /** RAG 开关：默认开启，由 Chat.vue 的复选框双向绑定 */
+  const useRag = ref(true)
 
   let turn: ChatTurn | null = null
   let controller: AbortController | null = null
@@ -217,7 +221,8 @@ function createChat() {
       modelKey: modelKey ?? activeModelKey(),
       effort: effort ?? catalog.value?.defaultEffort,
       clientMsgId: newClientMsgId(),
-      regenerate: false
+      regenerate: false,
+      useRag: useRag.value
     }
     await run(lastPayload)
   }
@@ -234,7 +239,8 @@ function createChat() {
       modelKey: lastPayload.modelKey,
       effort: lastPayload.effort,
       clientMsgId: newClientMsgId(),
-      regenerate: true
+      regenerate: true,
+      useRag: useRag.value
     })
   }
 
@@ -282,7 +288,8 @@ function createChat() {
         failed: false,
         retryable: false,
         fromHistory: false,
-        clientMsgId: payload.clientMsgId
+        clientMsgId: payload.clientMsgId,
+        citations: []
       })
     }
     const stale = messages.value.findIndex(m => m.key === assistantKey)
@@ -302,7 +309,8 @@ function createChat() {
       failed: false,
       retryable: false,
       fromHistory: false,
-      clientMsgId: payload.clientMsgId
+      clientMsgId: payload.clientMsgId,
+      citations: []
     }
     messages.value.push(turn)
     // push 进 ref([]) 之后必须把引用换成数组里的代理对象：直接改原始对象不会触发重渲染，
@@ -380,6 +388,9 @@ function createChat() {
       flushThinking()
       errorText.value = err.msg
     },
+    onSources: (sources: { citations: RagCitation[] }) => {
+      target.citations = sources.citations
+    },
     onReject: (msg: string) => {
       // 建流前就被拒绝：这条 assistant 占位根本没开始生成，撤掉它，问题行留着好改。
       errorText.value = msg
@@ -427,6 +438,7 @@ function createChat() {
     messages,
     sending,
     errorText,
+    useRag,
     currentModel,
     currentModelSupportsThinking,
     loadCatalog,
@@ -471,7 +483,8 @@ function toTurn(item: ChatMessage): ChatTurn {
     settled: true,
     failed: item.status === 'failed',
     retryable: false,
-    fromHistory: true
+    fromHistory: true,
+    citations: []
   }
 }
 

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AeroShards from '../components/background/AeroShards.vue'
+import ShinyText from '../components/text/ShinyText.vue'
 import { useTheme } from '../composables/useTheme'
 import { useAuthStore } from '../stores/auth'
 
@@ -19,6 +20,13 @@ const palette = computed(() =>
 )
 
 const pageStyle = computed(() => ({ '--home-scrim': palette.value.scrim }))
+
+// 扫光文字的两个色值：底色决定整体明度，高光扫过时提亮。
+const titleShine = computed(() =>
+  theme.value === 'dark'
+    ? { color: '#d4d4d8', shineColor: '#ffffff' }
+    : { color: '#3f3f46', shineColor: '#71717a' },
+)
 </script>
 
 <template>
@@ -36,7 +44,15 @@ const pageStyle = computed(() => ({ '--home-scrim': palette.value.scrim }))
 
     <div class="home-content">
       <section class="hero">
-        <h1 class="hero-title">EZ-Up</h1>
+        <h1 class="hero-title">
+          <ShinyText
+              text="EZ-Up"
+              :color="titleShine.color"
+              :shine-color="titleShine.shineColor"
+              :speed="3"
+              :spread="100"
+          />
+        </h1>
         <p class="hero-sub">刷题 · AI · 圈子</p>
         <div class="hero-actions">
           <button class="btn btn-primary" @click="router.push('/practice')">开始刷题</button>
