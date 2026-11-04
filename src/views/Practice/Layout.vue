@@ -100,6 +100,10 @@ function dismissError(): void {
 
   position: fixed;
   inset: 0;
+  /* 悬浮 Header 的净空：只让内容避开，背景/侧边栏铺满整屏。
+     header 实测 top24 + 高60 = 底边 84（≤767px 是 top12 + 高54 = 66），
+     所以只有 96 / 80 两档，中间宽度不需要再降。 */
+  --head-clear: 96px;
   display: flex;
   background: var(--bg-base);
   color: var(--text-primary);
@@ -144,15 +148,31 @@ function dismissError(): void {
 .sb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-count { flex: none; font-size: 12px; color: var(--text-muted); }
 
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 14px; gap: 12px; }
+.main {
+  /* min-height: 0 不是可省的：≤767px 时 shell 是竖排，flex 项的 min-height 默认 auto
+     = 不小于内容高度，于是 main 被撑到内容那么高，page-area 的 overflow:auto 永远不触发，
+     超出视口的题目直接滚不到。 */
+  flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;
+  padding: var(--head-clear) 14px 14px; gap: 12px;
+}
 .page-area { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
 
+/* header 居中、最宽 900px，左边缘在 vw/2-450；侧栏 220px 宽，只有 vw<1340 才会被压到 */
+@media (max-width: 1339px) {
+  .sb { padding-top: var(--head-clear); }
+}
+
 @media (max-width: 767px) {
-  .practice-shell { flex-direction: column; }
+  .practice-shell {
+    --head-clear: 80px;
+    flex-direction: column;
+  }
   .sb {
     width: 100%; flex-direction: row; flex-wrap: wrap; gap: 8px;
     border-right: 0; border-bottom: 1px solid var(--divider);
   }
+  /* 竖排时侧栏就是顶部那条，它自己已经让开 header 了，主区再让一次会空出两屏高 */
+  .main { padding-top: 14px; }
   .sb-brand, .sb-label, .sb-subjects { display: none; }
   .sb-nav { flex-direction: row; }
 }

@@ -113,15 +113,16 @@ watch(() => route.query.questionId, openCurrent)
       </button>
     </header>
 
-    <ErrorBar v-if="drill.error.value" :message="drill.error.value" @dismiss="dismissError" />
+    <ErrorBar v-if="drill.error.value" class="span-all" :message="drill.error.value" @dismiss="dismissError" />
 
     <EmptyState v-if="drill.finished.value"
+                class="span-all"
                 title="这一科已经全部作答"
                 hint="换个模式，或者去错题本看看没掌握的题目。">
       <button class="ghost" type="button" @click="navigateTo({ kind: 'mode', mode: 3 })">智能练习</button>
     </EmptyState>
 
-    <template v-else-if="drill.question.value">
+    <div v-else-if="drill.question.value" class="q-main">
       <QuestionBody
           :question="drill.question.value"
           :model-value="drill.model.value"
@@ -175,26 +176,40 @@ watch(() => route.query.questionId, openCurrent)
           </button>
         </div>
       </div>
-    </template>
+    </div>
 
-    <p v-else-if="!drill.loading.value && !drill.error.value" class="tip">
+    <p v-else-if="!drill.loading.value && !drill.error.value" class="tip span-all">
       这道题暂时打不开，换个模式或去列表里点一道。
     </p>
 
-    <AnswerCard
-        :cells="drill.cardCells.value"
-        :current-id="drill.currentId.value"
-        @select="selectCell"
-    />
+    <aside class="rail">
+      <AnswerCard
+          :cells="drill.cardCells.value"
+          :current-id="drill.currentId.value"
+          @select="selectCell"
+      />
+    </aside>
   </section>
 </template>
 
 <style scoped>
 .drill {
-  display: flex; flex-direction: column; gap: 16px;
-  max-width: 760px; margin: 0 auto; width: 100%;
+  display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px 24px;
+  max-width: 1180px; margin: 0 auto; width: 100%;
 }
-.head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* 头部与整块提示横跨两栏；正文左栏、答题卡右栏常驻 */
+.head { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.span-all { grid-column: 1 / -1; }
+.q-main { grid-column: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+/* align-self: start 才给 sticky 留出滑动空间（默认的 stretch 会把格子拉到和行一样高） */
+.rail { grid-column: 2; min-width: 0; align-self: start; position: sticky; top: 0; }
+/* 没有题目可并排时（答完/报错/打不开），答题卡铺满整行，免得孤零零贴在右侧 */
+.drill:not(:has(.q-main)) .rail { grid-column: 1 / -1; }
+@media (max-width: 1099px) {
+  .drill { grid-template-columns: minmax(0, 1fr); }
+  .q-main, .rail { grid-column: 1; }
+  .rail { position: static; }
+}
 .head-main { flex: 1; min-width: 140px; }
 .title { margin: 0; font-size: 17px; }
 .stat { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
