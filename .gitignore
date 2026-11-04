@@ -37,3 +37,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# 桌宠演示用 GIF，运行时零引用，别让它进历史（node_modules 由上面的通用规则已排除）
+pet-server/assets/preview/

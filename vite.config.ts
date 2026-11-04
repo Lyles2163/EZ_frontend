@@ -4,10 +4,12 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
+import { petServer, readPetRuntime, resolvePetPort } from './vite-plugins/petServer'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(), tailwindcss()
+    vue(), tailwindcss(), petServer()
   ],
   resolve: {
     alias: {
@@ -23,6 +25,23 @@ export default defineConfig({
         target: 'http://127.0.0.1:8100',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/gw/, ''),
+      },
+      // dsh-pet 独立模式：/pet -> http://127.0.0.1:<端口>
+      // iframe 渲染页 + HTTP API 控制都走这条，避免浏览器跨域。
+      // 进程由 petServer() 插件随 dev server 起停，这里只负责转发。
+      '/pet': {
+        target: `http://127.0.0.1:${resolvePetPort()}`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pet/, ''),
+        // 写操作要 x-dsh-pet-token 鉴权。令牌每次桌宠启动都会换，所以必须在每个请求上
+        // 现读运行清单，不能在启动时读死——否则桌宠一重启，前端这边就全程 403，
+        // 只能连带重启 dev server。
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            const token = readPetRuntime()?.token
+            if (token) proxyReq.setHeader('x-dsh-pet-token', token)
+          })
+        },
       },
     },
   },

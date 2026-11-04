@@ -10,10 +10,13 @@
 │  EZ_frontend (Vue3 + Vite)              │
 │                                         │
 │  PetWidget.vue (iframe)                 │
-│      │ 嵌入 http://127.0.0.1:3080/...   │
+│      │ 嵌入 /PetWidget/index.html       │
+│      │  （public/ 下的渲染页副本）       │
 │      ▼                                  │
 │  ┌─────────────────────────────────┐    │
 │  │  dsh-pet 独立模式 (Node 进程)    │    │
+│  │  = 项目内 pet-server/，由 vite   │    │
+│  │  插件随 dev server 起停          │    │
 │  │  http://127.0.0.1:3080          │    │
 │  │  └─ /dsh-pet-7340/*  HTTP API   │    │
 │  └─────────────────────────────────┘    │
@@ -30,28 +33,19 @@
 
 ## 启动步骤
 
-### 1. 启动 dsh-pet 独立模式
+只有一步：`npm run dev`。桌宠独立模式由 vite 插件 `vite-plugins/petServer.ts` 跟着 dev server 一起起、一起收。
 
-```bash
-# 全局安装（只需一次）
-npm install -g dsh-pet
+- 桌宠代码在项目内的 `pet-server/`（上游 dsh-pet 0.4.0，MIT，版权声明见 `pet-server/LICENSE`）。`node_modules` 与 67M 的 `assets/preview/`（运行时零引用的演示 GIF）不进 git；前者用 `npm install --prefix pet-server` 重建。
+- 起进程时固定传 `--port 3080`，代理目标因此不会漂到别的端口。
+- 运行清单 `~/.dsh/dsh-pet/standalone-runtime.json` 里的 pid 还活着 → 复用，不重复起；进程被强杀留下的陈旧清单按「没有实例」处理，直接重新拉起。
+- 子进程的 stdout/stderr 加 `[pet]` 前缀打进 dev 日志，不用另开窗口盯。
+- dev server 关闭时只杀自己拉起的那个 pid，并清掉指向自己的运行清单。实测用 `taskkill /F` 硬杀 dev server 也不会留孤儿进程。
 
-# 启动独立模式服务（默认端口 3080）
-dsh-pet-standalone
-```
+已知边界：桌宠在 dev server 运行期间自己死掉，**不会自动重生**，要等下一次 `npm run dev`。
 
-启动后会看到：
+AI 配置（接口地址、模型、密钥）存在 `~/.dsh/dsh-pet/standalone-ai.json`，按用户主目录定位、与代码放在哪无关，所以换目录不需要重配。
 
-```
-===== dsh-pet 独立模式（不需要 DSH）=====
-  路由        http://127.0.0.1:3080/dsh-pet-7340/
-```
-
-### 2. 启动前端项目
-
-```bash
-npm run dev
-```
+令牌每次桌宠启动都会换，因此 `/pet` 代理在**每个请求上现读**运行清单，而不是启动时读死——否则桌宠一重启，前端这边就全程 403，只能连带重启 dev server。
 
 打开 `http://localhost:5173`，桌宠铺满整个页面（透明覆盖层），默认停在窗口右下角。
 
@@ -93,13 +87,19 @@ npm run dev
 | `src/components/PetWidget.vue` | iframe 嵌入组件，监听事件并调用 petApi |
 | `src/composables/useChat.ts` | 接入：发送/完成/失败时 emit 事件 |
 | `src/composables/useDrill.ts` | 接入：提交/答对/答错时 emit 事件 |
-| `vite.config.ts` | dev 代理：`/pet` → `http://127.0.0.1:3080` |
+| `vite.config.ts` | dev 代理：`/pet` → `http://127.0.0.1:3080`，令牌每请求现读 |
+| `vite-plugins/petServer.ts` | 随 dev server 起停桌宠独立模式；运行清单解析与实例复用判定 |
+| `vite-plugins/__tests__/petServer.test.ts` | 上面那个的 node 单测（清单解析、pid 存活、端口选择、缺依赖护栏） |
+| `pet-server/` | dsh-pet 独立模式本体（MIT）；`node_modules` 与 `assets/preview` 不进 git |
 | `src/App.vue` | 挂载 PetWidget |
 
 ## API 速查
 
-独立模式下 `POST /whisper`、`POST /chat`、`POST /balance` 不可用
-（没有 DSH 的模型凭据），但以下接口可用：
+独立模式没有 DSH 宿主，`POST /whisper`、`POST /balance` 不可用。
+`POST /chat` **可用**——它经 `/ai/v1/chat/completions` 兼容层打到本项目自己的 AIModule
+（DeepSeek + RAG），口径见后端仓库；凭据存在 `~/.dsh/dsh-pet/standalone-ai.json`。
+
+以下控制接口可用：
 
 | 接口 | 用途 |
 |-----|------|
