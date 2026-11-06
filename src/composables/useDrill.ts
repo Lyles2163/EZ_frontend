@@ -16,6 +16,7 @@ import {
   ANSWER_CORRECT, ANSWER_PENDING, ANSWER_WRONG,
   type AnswerSubmitResult, type Question, type QuestionCurrent, type StatDelta,
 } from '../api/practice/types'
+import { emitAnswerCorrect, emitAnswerSubmitting, emitAnswerWrong } from '../services/petBus'
 
 export type DrillTarget = { kind: 'mode'; mode: 1 | 3 } | { kind: 'question'; questionId: number }
 
@@ -163,6 +164,7 @@ export function useDrill(getSubjectId: () => number | null) {
     const mine = flowGuard.next()
     busy.value = true
     error.value = null
+    emitAnswerSubmitting()
     try {
       const got = await submitAnswer(form)
       if (!flowGuard.isCurrent(mine)) return
@@ -170,6 +172,11 @@ export function useDrill(getSubjectId: () => number | null) {
       revealed.value = !got.needSelfJudge
       stat.value = got.statDelta          // 累计快照，覆盖而不是相加
       patchCell(questionId, cardStateAfterSubmit(got))
+      // 后端直接裁定对错时，让宠物点评
+      if (!got.needSelfJudge) {
+        if (got.isCorrect) emitAnswerCorrect()
+        else emitAnswerWrong()
+      }
     } catch (err) {
       if (flowGuard.isCurrent(mine)) error.value = errorText(err)
     } finally {
@@ -198,6 +205,8 @@ export function useDrill(getSubjectId: () => number | null) {
       answerStatus.value = isCorrect ? ANSWER_CORRECT : ANSWER_WRONG
       patchCell(questionId, isCorrect ? 'correct' : 'wrong')
       judgedTip.value = isCorrect ? '已记录自评：答对' : '已记录自评：答错'
+      if (isCorrect) emitAnswerCorrect()
+      else emitAnswerWrong()
       if (result.value) {
         // 本轮提交过才有答案与解析可展开，措辞也从"请自评"收敛成结果
         result.value = { ...result.value, isCorrect, needSelfJudge: false }

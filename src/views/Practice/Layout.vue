@@ -11,6 +11,7 @@ const NAV = [
   { name: 'practice-drill', label: '练习' },
   { name: 'practice-wrong', label: '错题本' },
   { name: 'practice-favorite', label: '收藏本' },
+  { name: 'practice-oj', label: '编程题' },
 ] as const
 
 const route = useRoute()
@@ -21,6 +22,14 @@ const { subjects, loading, error, reload, ensure, store } = useSubjects()
 onMounted(ensure)
 
 const activeName = computed(() => String(route.name ?? ''))
+
+/**
+ * 高亮除了精确匹配，还要覆盖子页面：编程题详情是 practice-oj-problem，
+ * 若只比相等，点进题目后侧栏就"没有当前项"了。
+ */
+function isActive(name: string): boolean {
+  return activeName.value === name || activeName.value.startsWith(`${name}-`)
+}
 
 /**
  * 子路由是一张一张接的（Task 10/13/14），而 RouterLink 指向不存在的路由名会当场抛。
@@ -55,7 +64,7 @@ function dismissError(): void {
             v-for="item in navItems"
             :key="item.name"
             class="sb-item"
-            :class="{ 'sb-item--on': activeName === item.name }"
+            :class="{ 'sb-item--on': isActive(item.name) }"
             :to="{ name: item.name }"
         >{{ item.label }}</RouterLink>
       </nav>

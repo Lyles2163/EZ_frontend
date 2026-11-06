@@ -46,11 +46,19 @@ export class HttpError extends Error {
 
 export interface RequestOptions {
   body?: unknown
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'DELETE'
   /** 默认 true：有令牌时注入 Authorization */
   auth?: boolean
   /** 'result' 解包 data 并校验 code；'none' 原样返回响应体（如 /user/selectAll 的裸数组） */
   envelope?: 'result' | 'none'
+  /**
+   * 原样交给 fetch 的请求体，不做 JSON.stringify，也不设 Content-Type。
+   * 文件上传必须走这条：手工设 Content-Type 会覆盖浏览器生成的 multipart boundary，
+   * 后端解析必然失败。与 body 互斥，同时给时以 rawBody 为准。
+   */
+  rawBody?: BodyInit
+  /** 覆盖默认 15s 超时。上传要跑 embedding，几秒到几十秒都正常，15s 必然掐断 */
+  timeoutMs?: number
 }
 
 interface Envelope {
@@ -96,24 +104,30 @@ async function readBody(res: Response): Promise<unknown> {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, auth = true, envelope = 'result' } = options
-  const method = options.method ?? (body === undefined ? 'GET' : 'POST')
+  const { body, rawBody, auth = true, envelope = 'result' } = options
+  const method = options.method ?? (body === undefined && rawBody === undefined ? 'GET' : 'POST')
 
   const headers: Record<string, string> = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  // rawBody（FormData）时绝不能设 Content-Type：浏览器要自己带 boundary，
+  // 手写 application/json 或 multipart/form-data 都会让后端解析失败。
+  if (rawBody === undefined && body !== undefined) headers['Content-Type'] = 'application/json'
   if (auth) {
     const token = tokenGetter()
     // 网关严格判前缀：必须正好是 "Bearer "（小写或缺空格一律 401）
     if (token) headers['Authorization'] = `Bearer ${token}`
   }
 
-  const timeout = AbortSignal.timeout(TIMEOUT_MS)
+  let wire: BodyInit | undefined
+  if (rawBody !== undefined) wire = rawBody
+  else if (body !== undefined) wire = JSON.stringify(body)
+
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS)
   let res: Response
   try {
     res = await fetch(apiUrl(path), {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: wire,
       signal: timeout,
     })
   } catch (err) {

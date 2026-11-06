@@ -263,9 +263,9 @@
       "fixedEnabled": false,
       "display": "both",
       "position": {
-        "corner": "top-right",
+        "corner": "bottom-right",
         "marginX": 24,
-        "marginY": 100
+        "marginY": 24
       }
       // 想让这只宠物有自己的性格，就取消下面这行的注释（留空/不写 = 跟随文件顶层的 whisperPrompt）
       // "whisperPrompt": "你是主人桌面上的猫娘，说话简短、爱吐槽，20 字以内。"

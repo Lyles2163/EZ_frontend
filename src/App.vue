@@ -1,7 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from './views/Header.vue'
+import PetWidget from './components/PetWidget.vue'
 
 // ========== 主题切换逻辑 ==========
 type Theme = 'light' | 'dark'
@@ -52,6 +53,9 @@ onMounted(() => {
         </Transition>
       </RouterView>
     </main>
+
+    <!-- 桌宠挂件：iframe 嵌入 dsh-pet 独立模式，监听业务事件联动 -->
+    <PetWidget />
   </div>
 </template>
 

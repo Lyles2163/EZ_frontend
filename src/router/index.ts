@@ -51,6 +51,18 @@ const router = createRouter({
           name: 'practice-favorite',
           component: () => import('../views/Practice/Favorite.vue'),
         },
+        {
+          path: 'oj',
+          name: 'practice-oj',
+          component: () => import('../views/Practice/OjList.vue'),
+        },
+        {
+          // 详情页把题号放进路径：刷新/分享都还能回到同一题。
+          // 组件内自己读 route.params.id，所以不传 props
+          path: 'oj/:id',
+          name: 'practice-oj-problem',
+          component: () => import('../views/Practice/OjProblem.vue'),
+        },
       ],
     },
     {

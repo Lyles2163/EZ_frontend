@@ -10,6 +10,7 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { nextPumpDelay } from './thinkingPace'
+import { emitChatDone, emitChatError, emitChatThinking, emitWorkStatus } from '../services/petBus'
 import {
   createConversation,
   fetchModelCatalog,
@@ -269,6 +270,8 @@ function createChat() {
   const run = async (payload: StreamPayload): Promise<void> => {
     sending.value = true
     errorText.value = ''
+    emitChatThinking()
+    emitWorkStatus('thinking')
 
     const userKey = `u-${payload.clientMsgId}`
     const assistantKey = `a-${payload.clientMsgId ?? 'regenerate'}`
@@ -329,6 +332,8 @@ function createChat() {
       activeTurn.settled = true
       sending.value = false
       controller = null
+      emitWorkStatus('success')
+      emitChatDone()
       void loadConversations()
       // 这里不再直接收思考线：正文已经开始流了，队列还得把最后几行放完（用户要的是「等队列放完再收」）
       const q = thinking
@@ -387,6 +392,8 @@ function createChat() {
       target.settled = true
       flushThinking()
       errorText.value = err.msg
+      emitWorkStatus('error')
+      emitChatError(err.msg)
     },
     onSources: (sources: { citations: RagCitation[] }) => {
       target.citations = sources.citations

@@ -1,0 +1,16 @@
+import { createRequire } from 'node:module'
+const require = createRequire('F:/AAAJAVA/code/pet/dsh-pet/dsh-pet/package.json')
+const { chromium } = require('playwright')
+const browser = await chromium.launch({ channel: 'msedge' })
+const page = await browser.newPage({ viewport: { width: 1500, height: 860 } })
+await page.goto('http://127.0.0.1:5173/login', { waitUntil: 'load' })
+await page.waitForTimeout(7000)
+const f = page.frames().find((x) => x.url().includes('PetWidget'))
+const snap = () => f.evaluate(() => ({ tick: workTick, anim: sprites[0].anim, bubble: (document.querySelector('.pet-bubble')||{}).textContent }))
+await page.evaluate(() => fetch('/pet/dsh-pet-7340/work-status?pet=main', { method: 'DELETE' }))
+await page.waitForTimeout(2500)
+console.log('idle :', JSON.stringify(await snap()))
+await page.evaluate(() => fetch('/pet/dsh-pet-7340/work-status?pet=main', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ state: 'error', task: '联动自检' }) }))
+for (let i = 0; i < 8; i++) { await page.waitForTimeout(900); console.log('  t+' + (i+1) + ':', JSON.stringify(await snap())) }
+await page.evaluate(() => fetch('/pet/dsh-pet-7340/work-status?pet=main', { method: 'DELETE' }))
+await browser.close()
